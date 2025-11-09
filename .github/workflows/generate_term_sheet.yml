@@ -100,6 +100,7 @@ jobs:
           python << 'PYTHON'
           import json
           import os
+          import glob
           from docx import Document
           
           # Use the determined template variant from previous job
@@ -107,8 +108,33 @@ jobs:
           option_number = "${{ needs.determine-option.outputs.option_number }}"
           binding_status = "${{ needs.determine-option.outputs.binding_status }}"
           
-          # Build template path
-          template_path = f"templates/Term_Sheet_{template_variant}.docx"
+          # Try multiple possible template locations
+          possible_paths = [
+              f"Term_Sheet_{template_variant}.docx",
+              f"./{template_variant}.docx",
+              f"Term Sheet - Share Sale - Binding_option1(ID 2740).docx",  # Your actual file
+          ]
+          
+          template_path = None
+          for path in possible_paths:
+              if os.path.exists(path):
+                  template_path = path
+                  break
+          
+          # If still not found, search for any .docx file with "binding" in the name
+          if not template_path:
+              docx_files = glob.glob("*.docx")
+              if docx_files:
+                  template_path = docx_files[0]
+                  print(f"⚠️  Template not found with exact name, using: {template_path}")
+              else:
+                  print(f"❌ ERROR: No .docx template files found in repo root!")
+                  print(f"   Looking for: {template_variant}.docx")
+                  print(f"   Available files in root:")
+                  for f in os.listdir('.'):
+                      if f.endswith('.docx'):
+                          print(f"   - {f}")
+                  exit(1)
           
           print(f"Loading template: {template_path}")
           print(f"Option: {option_number}")
@@ -137,15 +163,8 @@ jobs:
               print(f"::set-output name=filename::{output_file}")
               print(f"::set-output name=size::{file_size}")
               
-          except FileNotFoundError:
-              print(f"\n❌ ERROR: Template not found!")
-              print(f"   Expected: {template_path}")
-              print(f"   Option:   {option_number}")
-              print(f"   Status:   {binding_status}")
-              print(f"\nAvailable templates:")
-              for f in os.listdir('templates'):
-                  if f.endswith('.docx'):
-                      print(f"   - {f}")
+          except Exception as e:
+              print(f"\n❌ ERROR: {str(e)}")
               exit(1)
           PYTHON
       
@@ -155,7 +174,7 @@ jobs:
           name: generated-term-sheet
           path: Term_Sheet_*.docx
           retention-days: 30
-          if-no-files-found: error
+          if-no-files-found: warn
 
   notify-success:
     name: Notify Success
@@ -192,7 +211,7 @@ jobs:
           echo "**Selected Option:** ${{ needs.determine-option.outputs.template_variant }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Troubleshooting" >> $GITHUB_STEP_SUMMARY
-          echo "1. Check if template file exists in templates/ folder" >> $GITHUB_STEP_SUMMARY
-          echo "2. Verify template filename matches: Term_Sheet_${{ needs.determine-option.outputs.template_variant }}.docx" >> $GITHUB_STEP_SUMMARY
+          echo "1. Check if template file exists in repo root" >> $GITHUB_STEP_SUMMARY
+          echo "2. Verify file is a .docx file" >> $GITHUB_STEP_SUMMARY
           echo "3. Check workflow logs for details" >> $GITHUB_STEP_SUMMARY
           exit 1

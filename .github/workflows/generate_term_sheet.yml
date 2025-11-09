@@ -27,6 +27,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install python-docx
 
+      - name: Create output directory
+        run: mkdir -p generated_documents
+
       - name: Find and process latest JSON
         run: |
           python << 'PYTHON_SCRIPT'

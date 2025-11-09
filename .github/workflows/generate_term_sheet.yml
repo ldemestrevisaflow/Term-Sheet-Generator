@@ -46,6 +46,8 @@ jobs:
           import json
           import sys
           import re
+          import glob
+          import os
           from datetime import datetime
           from docx import Document
           from docx.shared import Pt, RGBColor
@@ -55,23 +57,34 @@ jobs:
           with open('${{ steps.get_data.outputs.data_file }}', 'r') as f:
               data = json.load(f)
           
-          # Load the template document
-          try:
-              doc = Document('Term_Sheet_-_Share_Sale__ID_2740_.docx')
-              print("✓ Template loaded successfully")
-          except FileNotFoundError:
-              print("✗ Template not found, using fallback template")
-              doc = Document()
+          # Load the template document - find it by pattern
+          template_file = None
+          doc = None
           
-          # Function to replace text in paragraphs
-          def replace_text_in_paragraph(paragraph, key, value):
-              if key in paragraph.text:
-                  # Clear existing runs
-                  for run in paragraph.runs:
-                      if key in run.text:
-                          run.text = run.text.replace(key, str(value))
-                          return True
-              return False
+          # Try exact filename first
+          if os.path.exists('Term_Sheet_-_Share_Sale__ID_2740_.docx'):
+              template_file = 'Term_Sheet_-_Share_Sale__ID_2740_.docx'
+              doc = Document(template_file)
+              print(f"✓ Template loaded: {template_file}")
+          else:
+              # Try to find any docx file that looks like a template
+              docx_files = glob.glob('*.docx')
+              docx_files = [f for f in docx_files if 'Term' in f or 'template' in f.lower()]
+              
+              if docx_files:
+                  template_file = docx_files[0]
+                  doc = Document(template_file)
+                  print(f"✓ Template loaded: {template_file}")
+              else:
+                  # If no template found, try any docx in root
+                  docx_files = glob.glob('*.docx')
+                  if docx_files:
+                      template_file = docx_files[0]
+                      doc = Document(template_file)
+                      print(f"✓ Using template: {template_file}")
+                  else:
+                      print("⚠ No template found, generating basic document")
+                      doc = Document()
           
           # Function to replace text in all runs of a paragraph
           def replace_text_in_runs(paragraph, key, value):
@@ -80,7 +93,7 @@ jobs:
                   # Clear all runs
                   for run in paragraph.runs:
                       run.text = ""
-                  # Add new text
+                  # Add new text with proper formatting
                   new_run = paragraph.add_run(full_text.replace(key, str(value)))
                   return True
               return False
@@ -107,31 +120,28 @@ jobs:
           
           non_compete_period = data.get('commercial', {}).get('nonCompetePeriod', '[insert period]')
           
-          # Replacement mapping
+          # Replacement mapping - comprehensive list
           replacements = {
               '[insert name and ABN of company]': f'{target_name} (ABN {target_abn})',
               '[Insert Party 1 Name]': seller_name,
               '[Insert Party 2 Name]': buyer_name,
               '[Insert Party 3 Name]': '[insert Escrow Agent Name]',
-              '[insert Party  Name]': seller_name,  # First occurrence (Seller)
-              '[insert Party Name]': buyer_name,     # Second occurrence (Buyer)
-              '[insert ABN]': target_abn,
               '[insert ABN of Party 1]': seller_abn,
               '[insert ABN of Party 2]': buyer_abn,
               '[insert ABN of Party 3]': '[insert ABN]',
               '[Insert ABN of Party 1]': seller_abn,
-              'A$[Insert Amount]': f'A${purchase_price:,.2f}',
+              '[insert ABN]': target_abn,
               '[Insert Amount]': f'${purchase_price:,.2f}',
               '[insert amount]': f'${deposit_amount:,.2f}',
+              'A$[Insert Amount]': f'A${purchase_price:,.2f}',
               '[insert date]': completion_date,
               '[new south wales]': governing_law.lower(),
               '[New South Wales]': governing_law,
               '[insert period]': f'{non_compete_period} years',
-              '[insert date of term sheet]': term_sheet_date,
           }
           
           # Replace in all paragraphs
-          print("\nReplacing placeholders in paragraphs...")
+          print("\n📝 Replacing placeholders in paragraphs...")
           replacements_made = 0
           for para_idx, para in enumerate(doc.paragraphs):
               for key, value in replacements.items():
@@ -141,7 +151,7 @@ jobs:
                       print(f"  ✓ {key} → {value}")
           
           # Replace in tables
-          print("\nReplacing placeholders in tables...")
+          print("\n📊 Replacing placeholders in tables...")
           for table_idx, table in enumerate(doc.tables):
               for row_idx, row in enumerate(table.rows):
                   for cell_idx, cell in enumerate(row.cells):
@@ -150,9 +160,9 @@ jobs:
                               if key in para.text:
                                   replace_text_in_runs(para, key, value)
                                   replacements_made += 1
-                                  print(f"  ✓ Table {table_idx}, Row {row_idx}, Cell {cell_idx}: {key} → {value}")
+                                  print(f"  ✓ Table {table_idx}: {key} → {value}")
           
-          print(f"\n✓ Total replacements made: {replacements_made}")
+          print(f"\n✅ Total replacements made: {replacements_made}")
           
           # Generate filename with timestamp
           now = datetime.utcnow()
@@ -160,7 +170,6 @@ jobs:
           filename = f"generated_documents/TS_{timestamp}.docx"
           
           # Ensure directory exists
-          import os
           os.makedirs("generated_documents", exist_ok=True)
           
           # Save the document

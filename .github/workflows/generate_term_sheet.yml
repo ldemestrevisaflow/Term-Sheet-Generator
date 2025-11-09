@@ -39,167 +39,120 @@ jobs:
           echo "data_file=$LATEST_FILE" >> $GITHUB_OUTPUT
           echo "File: $LATEST_FILE"
 
-      - name: Generate Term Sheet
+      - name: Generate Term Sheet from Template
         if: steps.get_data.outputs.data_file != ''
         run: |
           python << 'PYTHON_SCRIPT'
           import json
           import sys
+          import re
           from datetime import datetime
           from docx import Document
-          from docx.shared import Pt, Inches
+          from docx.shared import Pt, RGBColor
           from docx.enum.text import WD_ALIGN_PARAGRAPH
           
           # Load the submitted data
           with open('${{ steps.get_data.outputs.data_file }}', 'r') as f:
               data = json.load(f)
           
-          # Create a new Word document
-          doc = Document()
+          # Load the template document
+          try:
+              doc = Document('Term_Sheet_-_Share_Sale__ID_2740_.docx')
+              print("✓ Template loaded successfully")
+          except FileNotFoundError:
+              print("✗ Template not found, using fallback template")
+              doc = Document()
           
-          # Set document margins
-          sections = doc.sections
-          for section in sections:
-              section.top_margin = Inches(1)
-              section.bottom_margin = Inches(1)
-              section.left_margin = Inches(1)
-              section.right_margin = Inches(1)
+          # Function to replace text in paragraphs
+          def replace_text_in_paragraph(paragraph, key, value):
+              if key in paragraph.text:
+                  # Clear existing runs
+                  for run in paragraph.runs:
+                      if key in run.text:
+                          run.text = run.text.replace(key, str(value))
+                          return True
+              return False
           
-          # Add PwC logo/header
-          header_para = doc.add_paragraph()
-          header_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-          header_run = header_para.add_run('PwC Legal AI')
-          header_run.bold = True
-          header_run.font.size = Pt(24)
+          # Function to replace text in all runs of a paragraph
+          def replace_text_in_runs(paragraph, key, value):
+              full_text = paragraph.text
+              if key in full_text:
+                  # Clear all runs
+                  for run in paragraph.runs:
+                      run.text = ""
+                  # Add new text
+                  new_run = paragraph.add_run(full_text.replace(key, str(value)))
+                  return True
+              return False
           
-          # Add title
-          title = doc.add_paragraph()
-          title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-          title_run = title.add_run('TERM SHEET')
-          title_run.bold = True
-          title_run.font.size = Pt(16)
-          
-          # Add date
-          date_para = doc.add_paragraph()
-          date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-          date_run = date_para.add_run(f"Date: {data.get('dates', {}).get('termSheetDate', 'TBD')}")
-          date_run.font.size = Pt(11)
-          
-          doc.add_paragraph()  # Blank line
-          
-          # Recitals
-          doc.add_heading('RECITALS', level=1)
-          
-          seller_name = data.get('seller', {}).get('name', '[Insert Seller Name]')
-          buyer_name = data.get('buyer', {}).get('name', '[Insert Buyer Name]')
-          target_name = data.get('targetCompany', {}).get('name', '[Insert Company Name]')
+          # Prepare replacement data
+          seller_name = data.get('seller', {}).get('name', '[insert Party Name]')
+          seller_abn = data.get('seller', {}).get('abn', '[insert ABN]')
+          buyer_name = data.get('buyer', {}).get('name', '[insert Party Name]')
+          buyer_abn = data.get('buyer', {}).get('abn', '[insert ABN]')
+          target_name = data.get('targetCompany', {}).get('name', '[insert name and ABN of company]')
           target_abn = data.get('targetCompany', {}).get('abn', '[Insert ABN]')
-          
-          recital_text = (
-              f"WHEREAS:\n\n"
-              f"A. The {seller_name} (Seller) owns all the issued shares (Shares) in {target_name} "
-              f"(ABN {target_abn}) (Company).\n\n"
-              f"B. The {buyer_name} (Buyer) has agreed to purchase the Shares from the Seller "
-              f"(Sale) on the terms set out in this term sheet (Term Sheet)."
-          )
-          doc.add_paragraph(recital_text)
-          
-          doc.add_paragraph()  # Blank line
-          
-          # Non-Binding / Binding Declaration
-          doc.add_heading('1. NON-BINDING TERM SHEET', level=1)
-          
-          term_sheet_type = data.get('legal', {}).get('termSheetType', 'nonbinding')
-          if term_sheet_type == 'binding':
-              binding_text = (
-                  "The parties agree:\n\n"
-                  "a. that the mutual promises in this Term Sheet are binding upon each of them; and\n\n"
-                  "b. to use their reasonable endeavours to enter into a long form legally binding share sale "
-                  "agreement that more fully and precisely sets out the agreement reached in this Term Sheet "
-                  f"before {data.get('dates', {}).get('longFormDate', '[Insert Date]')}. If no further agreement "
-                  "is entered into, this Term Sheet will remain as evidence of the binding obligations between them."
-              )
-          else:
-              binding_text = (
-                  "The parties agree that the contents of this Term Sheet reflect their proposed course of dealing only. "
-                  "Subject to the exceptions noted below, no legally binding obligations will be created between the parties "
-                  "unless and until formal legal documents are executed by each of them.\n\n"
-                  "The following terms are binding: due diligence obligations, exclusivity, non-compete, ordinary course of "
-                  "business, confidentiality, and currency provisions."
-              )
-          doc.add_paragraph(binding_text)
-          
-          doc.add_paragraph()  # Blank line
-          
-          # Sale of the Shares
-          doc.add_heading('2. SALE OF THE SHARES', level=1)
-          doc.add_paragraph(
-              f"Subject to satisfaction of the Conditions Precedent set out in clause 6 of this Term Sheet, "
-              f"on the Completion Date (as defined below), the Seller will sell and the Buyer will purchase "
-              f"all of the issued shares in the Company."
-          )
-          
-          doc.add_paragraph()  # Blank line
-          
-          # Key Dates
-          doc.add_heading('3. KEY DATES', level=1)
-          doc.add_paragraph("The parties agree that:")
-          
-          dates_text = (
-              f"a. the Buyer will complete its due diligence investigations of the Company on or before "
-              f"{data.get('dates', {}).get('dueDiligenceDate', '[Insert Date]')};\n"
-              f"b. long form binding agreements reflecting this Term Sheet will be entered into on or before "
-              f"{data.get('dates', {}).get('longFormDate', '[Insert Date]')}; and\n"
-              f"c. completion of the Sale (Completion) is to take place, subject to satisfaction of the "
-              f"Conditions Precedent set out in clause 6 of this Term Sheet, on "
-              f"{data.get('dates', {}).get('completionDate', '[Insert Date]')}, or any other date agreed "
-              f"to in writing between the parties (Completion Date)."
-          )
-          doc.add_paragraph(dates_text)
-          
-          doc.add_paragraph()  # Blank line
-          
-          # Purchase Price
-          doc.add_heading('4. PURCHASE PRICE', level=1)
+          target_acn = data.get('targetCompany', {}).get('acn', '')
           
           purchase_price = data.get('transaction', {}).get('purchasePrice', 0)
           deposit_amount = data.get('transaction', {}).get('depositAmount', 0)
-          balance_price = purchase_price - deposit_amount
           
-          price_text = (
-              f"The price payable by the Buyer for the Shares will be A${purchase_price:,.2f} "
-              f"(Purchase Price), to be paid as follows:\n\n"
-              f"a. A${deposit_amount:,.2f} payable on the Completion Date (or earlier as specified);\n"
-              f"b. A${balance_price:,.2f} balance payable on [insert date]."
-          )
-          doc.add_paragraph(price_text)
+          completion_date = data.get('dates', {}).get('completionDate', '[insert date]')
+          due_diligence_date = data.get('dates', {}).get('dueDiligenceDate', '[insert date]')
+          long_form_date = data.get('dates', {}).get('longFormDate', '[insert date]')
+          term_sheet_date = data.get('dates', {}).get('termSheetDate', '[insert date]')
           
-          doc.add_paragraph()  # Blank line
+          term_sheet_type = data.get('legal', {}).get('termSheetType', 'nonbinding')
+          governing_law = data.get('legal', {}).get('governingLaw', 'New South Wales')
           
-          # Conditions Precedent
-          doc.add_heading('5. CONDITIONS PRECEDENT', level=1)
+          non_compete_period = data.get('commercial', {}).get('nonCompetePeriod', '[insert period]')
           
-          doc.add_paragraph(
-              f"Satisfaction of the following will be conditions precedent to completion of the Sale "
-              f"(Conditions Precedent) on or before {data.get('dates', {}).get('conditionSatisfactionDate', '[Insert Date]')} "
-              f"(Condition Satisfaction Date):"
-          )
+          # Replacement mapping
+          replacements = {
+              '[insert name and ABN of company]': f'{target_name} (ABN {target_abn})',
+              '[Insert Party 1 Name]': seller_name,
+              '[Insert Party 2 Name]': buyer_name,
+              '[Insert Party 3 Name]': '[insert Escrow Agent Name]',
+              '[insert Party  Name]': seller_name,  # First occurrence (Seller)
+              '[insert Party Name]': buyer_name,     # Second occurrence (Buyer)
+              '[insert ABN]': target_abn,
+              '[insert ABN of Party 1]': seller_abn,
+              '[insert ABN of Party 2]': buyer_abn,
+              '[insert ABN of Party 3]': '[insert ABN]',
+              '[Insert ABN of Party 1]': seller_abn,
+              'A$[Insert Amount]': f'A${purchase_price:,.2f}',
+              '[Insert Amount]': f'${purchase_price:,.2f}',
+              '[insert amount]': f'${deposit_amount:,.2f}',
+              '[insert date]': completion_date,
+              '[new south wales]': governing_law.lower(),
+              '[New South Wales]': governing_law,
+              '[insert period]': f'{non_compete_period} years',
+              '[insert date of term sheet]': term_sheet_date,
+          }
           
-          conditions_text = (
-              "a. the results of the legal and accounting examination of the Company (due diligence "
-              "investigations) referred to in clause 8 of this Term Sheet, being to the reasonable satisfaction "
-              "of the Buyer;\n"
-              "b. satisfactory completion of all legal due diligence investigations;\n"
-              "c. board approval from both Seller and Buyer;\n"
-          )
+          # Replace in all paragraphs
+          print("\nReplacing placeholders in paragraphs...")
+          replacements_made = 0
+          for para_idx, para in enumerate(doc.paragraphs):
+              for key, value in replacements.items():
+                  if key in para.text:
+                      replace_text_in_runs(para, key, value)
+                      replacements_made += 1
+                      print(f"  ✓ {key} → {value}")
           
-          additional_conditions = data.get('conditions', {}).get('additionalConditions', '')
-          if additional_conditions:
-              conditions_text += f"d. {additional_conditions}"
+          # Replace in tables
+          print("\nReplacing placeholders in tables...")
+          for table_idx, table in enumerate(doc.tables):
+              for row_idx, row in enumerate(table.rows):
+                  for cell_idx, cell in enumerate(row.cells):
+                      for para in cell.paragraphs:
+                          for key, value in replacements.items():
+                              if key in para.text:
+                                  replace_text_in_runs(para, key, value)
+                                  replacements_made += 1
+                                  print(f"  ✓ Table {table_idx}, Row {row_idx}, Cell {cell_idx}: {key} → {value}")
           
-          doc.add_paragraph(conditions_text)
-          
-          doc.add_paragraph()  # Blank line
+          print(f"\n✓ Total replacements made: {replacements_made}")
           
           # Generate filename with timestamp
           now = datetime.utcnow()
@@ -212,7 +165,7 @@ jobs:
           
           # Save the document
           doc.save(filename)
-          print(f"✓ Term Sheet generated: {filename}")
+          print(f"\n✓ Term Sheet generated: {filename}")
           
           PYTHON_SCRIPT
 

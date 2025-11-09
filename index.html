@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Term Sheet Questionnaire | PwC Legal AI</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --pwc-orange: #fd5107;
+            --pwc-dark: #2D2D2D;
+            --pwc-gray: #717171;
+            --pwc-light-gray: #f5f5f5;
+            --pwc-border: #dcdcdc;
+            --success: #107c10;
+            --shadow-light: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-medium: 0 2px 8px rgba(0,0,0,0.12);
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5e6e0 0%, #fbe9e4 50%, #f9f0ed 100%);
+            min-height: 100vh;
+            color: var(--pwc-dark);
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 260px;
+            background: white;
+            border-right: 1px solid var(--pwc-border);
+            padding: 40px 20px;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-light);
+        }
+
+        .sidebar-header {
+            margin-bottom: 40px;
+            border-bottom: 2px solid var(--pwc-border);
+            padding-bottom: 20px;
+        }
+
+        .sidebar-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--pwc-gray);
+            font-weight: 700;
+            letter-spacing: 0.8px;
+        }
+
+        .nav-section {
+            margin-bottom: 8px;
+        }
+
+        .nav-item {
+            display: block;
+            width: 100%;
+            padding: 11px 14px;
+            background: none;
+            border: none;
+            border-left: 3px solid transparent;
+            text-align: left;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--pwc-dark);
+            transition: all 0.2s ease;
+            border-radius: 2px;
+        }
+
+        .nav-item:hover {
+            background: var(--pwc-light-gray);
+            border-left-color: var(--pwc-orange);
+        }
+
+        .nav-item.active {
+            background: var(--pwc-light-gray);
+            border-left-color: var(--pwc-orange);
+            color: var(--pwc-orange);
+            font-weight: 600;
+        }
+
+        .progress-section {
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid var(--pwc-border);
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background: var(--pwc-border);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--pwc-orange), #ff6b35);
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 11px;
+            color: var(--pwc-gray);
+            font-weight: 600;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 50px 60px;
+        }
+
+        .header {
+            margin-bottom: 50px;
+        }
+
+        .header-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--pwc-dark);
+            margin-bottom: 12px;
+        }
+
+        .header-subtitle {
+            font-size: 14px;
+            color: var(--pwc-gray);
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: white;
+            border-radius: 4px;
+            padding: 30px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-light);
+            border: 1px solid var(--pwc-border);
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--pwc-dark);
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--pwc-border);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card-subtitle {
+            font-size: 13px;
+            color: var(--pwc-gray);
+            line-height: 1.6;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .form-grid.full {
+            grid-template-columns: 1fr;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--pwc-dark);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .required::after {
+            content: " *";
+            color: #c50f1f;
+        }
+
+        .form-control {
+            padding: 10px 12px;
+            border: 1px solid var(--pwc-border);
+            border-radius: 3px;
+            font-size: 13px;
+            font-family: inherit;
+            background: white;
+            transition: all 0.2s ease;
+            color: var(--pwc-dark);
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--pwc-orange);
+            box-shadow: 0 0 0 2px rgba(253, 81, 7, 0.1);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .radio-group, .checkbox-group {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .radio-option, .checkbox-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .radio-option input[type="radio"],
+        .checkbox-option input[type="checkbox"] {
+            width: auto;
+            cursor: pointer;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 40px;
+            justify-content: space-between;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 3px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: var(--pwc-orange);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #e54505;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-medium);
+        }
+
+        .btn-secondary {
+            background: var(--pwc-light-gray);
+            color: var(--pwc-dark);
+        }
+
+        .btn-secondary:hover {
+            background: #e8e8e8;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 60px 30px;
+        }
+
+        .spinner {
+            border: 4px solid var(--pwc-light-gray);
+            border-top: 4px solid var(--pwc-orange);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .success-message {
+            display: none;
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 4px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .download-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 12px 30px;
+            background: var(--success);
+            color: white;
+            text-decoration: none;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .download-link:hover {
+            background: #0d6e0f;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--pwc-dark);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 4px;
+            box-shadow: var(--shadow-medium);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 3px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2196f3;
+            font-size: 13px;
+            color: #1565c0;
+        }
+
+        .abn-verification-group {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 3px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--pwc-orange);
+        }
+
+        .abn-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .abn-status.valid {
+            color: var(--success);
+        }
+
+        .abn-status.invalid {
+            color: #c50f1f;
+        }
+
+        .abn-status.pending {
+            color: #107c10;
+        }
+
+        .abn-status-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .abn-status.valid .abn-status-icon {
+            background: var(--success);
+        }
+
+        .abn-status.invalid .abn-status-icon {
+            background: #c50f1f;
+        }
+
+        .abn-status.pending .abn-status-icon {
+            background: #0078d4;
+        }
+
+        .abn-details {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 3px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .abn-details dt {
+            font-weight: 600;
+            color: var(--pwc-dark);
+            margin-top: 8px;
+        }
+
+        .abn-details dd {
+            color: var(--pwc-gray);
+            margin-left: 0;
+            margin-bottom: 4px;
+        }
+
+        .verify-btn {
+            background: var(--pwc-orange);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .verify-btn:hover {
+            background: #e54505;
+        }
+
+        .verify-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .spinner-small {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--pwc-orange);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-title">Term Sheet</div>
+            </div>
+
+            <div class="nav-section">
+                <button class="nav-item active" onclick="switchSection('basic')">1. Basic Details</button>
+                <button class="nav-item" onclick="switchSection('transaction')">2. Transaction</button>
+                <button class="nav-item" onclick="switchSection('dates')">3. Key Dates</button>
+                <button class="nav-item" onclick="switchSection('conditions')">4. Conditions</button>
+                <button class="nav-item" onclick="switchSection('warranties')">5. Warranties</button>
+                <button class="nav-item" onclick="switchSection('commercial')">6. Commercial</button>
+                <button class="nav-item" onclick="switchSection('management')">7. Management</button>
+                <button class="nav-item" onclick="switchSection('legal')">8. Legal</button>
+                <button class="nav-item" onclick="switchSection('review')">9. Review</button>
+            </div>
+
+            <div class="progress-section">
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+                </div>
+                <div class="progress-text"><span id="progressPercent">0</span>% Complete</div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main">
+            <div class="header">
+                <h1 class="header-title">Term Sheet Generator</h1>
+                <p class="header-subtitle">Complete the questionnaire to generate your client-specific term sheet</p>
+            </div>
+
+            <form id="termSheetForm">
+                <!-- Section 1: Basic Details -->
+                <div class="section active" id="basic">
+                    <div class="card">
+                        <h2 class="card-title">Basic Details</h2>
+                        <p class="card-subtitle">Enter the primary details for the term sheet</p>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Company Name (Seller)</label>
+                                <input type="text" id="companyName" class="form-control" required placeholder="e.g., ABC Holdings Pty Ltd">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label required">Company ABN</label>
+                                <div class="abn-verification-group">
+                                    <input type="text" id="companyABN" class="form-control" required placeholder="e.g., 12 345 678 901">
+                                    <div id="companyABNStatus" class="abn-status" style="display: none;"></div>
+                                    <div id="companyABNDetails" class="abn-details" style="display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Buyer Name</label>
+                                <input type="text" id="buyerName" class="form-control" required placeholder="e.g., XYZ Acquisitions Pty Ltd">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label required">Buyer ABN</label>
+                                <div class="abn-verification-group">
+                                    <input type="text" id="buyerABN" class="form-control" placeholder="e.g., 98 765 432 101">
+                                    <div id="buyerABNStatus" class="abn-status" style="display: none;"></div>
+                                    <div id="buyerABNDetails" class="abn-details" style="display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label required">Term Sheet Type</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="typeBinding" name="termSheetType" value="binding" required>
+                                        <label for="typeBinding">Binding</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="typeNonBinding" name="termSheetType" value="nonbinding" required>
+                                        <label for="typeNonBinding">Non-Binding</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Term Sheet Date</label>
+                                <input type="date" id="termSheetDate" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Governing Law</label>
+                                <select id="governingLaw" class="form-control">
+                                    <option value="">Select Jurisdiction</option>
+                                    <option value="New South Wales">New South Wales</option>
+                                    <option value="Victoria">Victoria</option>
+                                    <option value="Queensland">Queensland</option>
+                                    <option value="South Australia">South Australia</option>
+                                    <option value="Western Australia">Western Australia</option>
+                                    <option value="Tasmania">Tasmania</option>
+                                    <option value="Northern Territory">Northern Territory</option>
+                                    <option value="Australian Capital Territory">Australian Capital Territory</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 2: Transaction -->
+                <div class="section" id="transaction">
+                    <div class="card">
+                        <h2 class="card-title">Transaction Details</h2>
+                        <p class="card-subtitle">Specify the shares and consideration</p>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label required">Target Company Name</label>
+                                <input type="text" id="targetCompanyName" class="form-control" required placeholder="e.g., [Name] Pty Ltd">
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Target Company ABN</label>
+                                <div class="abn-verification-group">
+                                    <input type="text" id="targetCompanyABN" class="form-control" placeholder="e.g., 12 345 678 901">
+                                    <div id="targetABNStatus" class="abn-status" style="display: none;"></div>
+                                    <div id="targetABNDetails" class="abn-details" style="display: none;"></div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Target Company ACN</label>
+                                <input type="text" id="targetCompanyACN" class="form-control" placeholder="e.g., 123 456 789">
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Total Purchase Price (A$)</label>
+                                <input type="number" id="purchasePrice" class="form-control" required placeholder="e.g., 5000000" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Deposit Amount (A$)</label>
+                                <input type="number" id="depositAmount" class="form-control" placeholder="e.g., 250000" step="0.01">
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Base Net Assets (A$)</label>
+                                <input type="number" id="baseNetAssets" class="form-control" placeholder="e.g., 2000000" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Key Dates -->
+                <div class="section" id="dates">
+                    <div class="card">
+                        <h2 class="card-title">Key Dates</h2>
+                        <p class="card-subtitle">Specify important milestone dates</p>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Due Diligence Completion Date</label>
+                                <input type="date" id="dueDiligenceDate" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label required">Long Form Agreement Date</label>
+                                <input type="date" id="longFormDate" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Condition Satisfaction Date</label>
+                                <input type="date" id="conditionSatisfactionDate" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label required">Completion Date</label>
+                                <input type="date" id="completionDate" class="form-control" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Conditions -->
+                <div class="section" id="conditions">
+                    <div class="card">
+                        <h2 class="card-title">Conditions Precedent</h2>
+                        <p class="card-subtitle">Specify conditions that must be satisfied</p>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Due Diligence Type</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="ddStructured" name="dueDiligenceType" value="structured">
+                                        <label for="ddStructured">Structured</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="ddUnstructured" name="dueDiligenceType" value="unstructured" checked>
+                                        <label for="ddUnstructured">Unstructured</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Information Request Timeline (days)</label>
+                                <input type="number" id="infoRequestDays" class="form-control" value="10" min="1">
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Due Diligence Access Period (days)</label>
+                                <input type="number" id="accessPeriodDays" class="form-control" value="30" min="1">
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Additional Conditions</label>
+                                <textarea id="additionalConditions" class="form-control" placeholder="e.g., satisfactory legal review, board approval, regulatory approval"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 5: Warranties -->
+                <div class="section" id="warranties">
+                    <div class="card">
+                        <h2 class="card-title">Warranties & Indemnities</h2>
+                        <p class="card-subtitle">Configure warranty framework</p>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Warranty Structure</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="warrantyJoint" name="warrantyStructure" value="joint" checked>
+                                        <label for="warrantyJoint">Joint & Several</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="warrantySeveral" name="warrantyStructure" value="several">
+                                        <label for="warrantySeveral">Several Only</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Taxation Indemnity</label>
+                                <div class="checkbox-group">
+                                    <div class="checkbox-option">
+                                        <input type="checkbox" id="taxIndemnity">
+                                        <label for="taxIndemnity">Include tax indemnity clause</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Warranty Limitations</label>
+                                <textarea id="additionalWarranties" class="form-control" placeholder="e.g., cap on liability, time limits, thresholds"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 6: Commercial -->
+                <div class="section" id="commercial">
+                    <div class="card">
+                        <h2 class="card-title">Commercial Terms</h2>
+                        <p class="card-subtitle">Configure non-compete and other commercial terms</p>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Non-Compete Period (years)</label>
+                                <input type="number" id="nonCompetePeriod" class="form-control" value="3" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label required">Non-Solicitation Period (months)</label>
+                                <input type="number" id="nonSolicitationPeriod" class="form-control" value="12" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Exclusivity Required</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="exclusivityYes" name="exclusivityRequired" value="yes">
+                                        <label for="exclusivityYes">Yes</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="exclusivityNo" name="exclusivityRequired" value="no" checked>
+                                        <label for="exclusivityNo">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="exclusivityFields" style="display: none;">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Exclusivity End Date</label>
+                                    <input type="date" id="exclusivityEndDate" class="form-control">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Liquidated Damages (A$)</label>
+                                    <input type="number" id="liquidatedDamages" class="form-control" step="0.01">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 7: Management -->
+                <div class="section" id="management">
+                    <div class="card">
+                        <h2 class="card-title">Management & Key Personnel</h2>
+                        <p class="card-subtitle">Specify director and key person arrangements</p>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Directors to Resign</label>
+                                <textarea id="directorsResign" class="form-control" placeholder="Enter names, one per line"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Directors Entering New Agreements</label>
+                                <textarea id="directorsNewAgreements" class="form-control" placeholder="Enter names, one per line"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Retention / Key Personnel Arrangements</label>
+                                <textarea id="retentionPersonnel" class="form-control" placeholder="e.g., CEO to remain for 24 months, earn-out based on performance"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 8: Legal -->
+                <div class="section" id="legal">
+                    <div class="card">
+                        <h2 class="card-title">Legal & Jurisdiction</h2>
+                        <p class="card-subtitle">Configure legal framework</p>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Jurisdiction</label>
+                                <select id="jurisdiction" class="form-control" required>
+                                    <option value="">Select Jurisdiction</option>
+                                    <option value="New South Wales">New South Wales</option>
+                                    <option value="Victoria">Victoria</option>
+                                    <option value="Queensland">Queensland</option>
+                                    <option value="South Australia">South Australia</option>
+                                    <option value="Western Australia">Western Australia</option>
+                                    <option value="Tasmania">Tasmania</option>
+                                    <option value="Northern Territory">Northern Territory</option>
+                                    <option value="Australian Capital Territory">Australian Capital Territory</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Jurisdiction Type</label>
+                                <div class="radio-group">
+                                    <div class="radio-option">
+                                        <input type="radio" id="jurisdictionExclusive" name="jurisdictionType" value="exclusive" checked>
+                                        <label for="jurisdictionExclusive">Exclusive</label>
+                                    </div>
+                                    <div class="radio-option">
+                                        <input type="radio" id="jurisdictionNonExclusive" name="jurisdictionType" value="non-exclusive">
+                                        <label for="jurisdictionNonExclusive">Non-Exclusive</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Buyer Signatories</label>
+                                <textarea id="buyerSignatories" class="form-control" placeholder="Enter names and titles, one per line"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Seller Signatories</label>
+                                <textarea id="sellerSignatories" class="form-control" placeholder="Enter names and titles, one per line"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Key Suppliers (Schedule 1)</label>
+                                <textarea id="suppliersSchedule" class="form-control" placeholder="List key suppliers, one per line"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label">Key Customers (Schedule 2)</label>
+                                <textarea id="customersSchedule" class="form-control" placeholder="List key customers, one per line"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 9: Review -->
+                <div class="section" id="review">
+                    <div class="card">
+                        <h2 class="card-title">Review & Generate</h2>
+                        <p class="card-subtitle">Review all details before generating the term sheet</p>
+
+                        <div class="info-box">
+                            <strong>Ready to generate?</strong> Your term sheet will be automatically generated and populated with the information you've provided. The document will be formatted according to PwC templates and delivered via GitHub Actions.
+                        </div>
+
+                        <div id="reviewSummary" style="margin-top: 20px;"></div>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="button" class="btn btn-secondary" onclick="switchSection('legal')">← Back</button>
+                        <button type="submit" class="btn btn-primary">Generate Term Sheet</button>
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons (all sections except review) -->
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const sections = document.querySelectorAll('.section:not(#review)');
+                        sections.forEach((section, index) => {
+                            if (section.id !== 'review') {
+                                const buttonGroup = document.createElement('div');
+                                buttonGroup.className = 'button-group';
+                                buttonGroup.style.marginTop = '40px';
+                                
+                                if (index > 0) {
+                                    const prevBtn = document.createElement('button');
+                                    prevBtn.type = 'button';
+                                    prevBtn.className = 'btn btn-secondary';
+                                    prevBtn.textContent = '← Previous';
+                                    prevBtn.onclick = () => switchSection(getPreviousSection(section.id));
+                                    buttonGroup.appendChild(prevBtn);
+                                } else {
+                                    const spacer = document.createElement('div');
+                                    spacer.style.flex = '1';
+                                    buttonGroup.appendChild(spacer);
+                                }
+                                
+                                if (index < sections.length - 1) {
+                                    const nextBtn = document.createElement('button');
+                                    nextBtn.type = 'button';
+                                    nextBtn.className = 'btn btn-primary';
+                                    nextBtn.textContent = 'Next →';
+                                    nextBtn.onclick = () => switchSection(getNextSection(section.id));
+                                    buttonGroup.appendChild(nextBtn);
+                                }
+                                
+                                section.appendChild(buttonGroup);
+                            }
+                        });
+                    });
+                </script>
+            </form>
+
+            <!-- Loading State -->
+            <div class="loading" id="loadingState">
+                <div class="spinner"></div>
+                <p>Generating your Term Sheet...</p>
+                <p style="font-size: 14px; color: var(--pwc-gray); margin-top: 10px;">
+                    This will take 2-3 minutes. Please wait...
+                </p>
+            </div>
+
+            <!-- Success Message -->
+            <div class="success-message" id="successMessage">
+                <h3>Term Sheet Generated Successfully!</h3>
+                <p>Your term sheet has been created with perfect PwC formatting.</p>
+                <a href="#" class="download-link" id="downloadLink">Download Term Sheet</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let submissionTimestamp = null;
+        const sectionOrder = ['basic', 'transaction', 'dates', 'conditions', 'warranties', 'commercial', 'management', 'legal', 'review'];
+
+        // Real ABN Lookup API from ABR
+        const ABN_LOOKUP_API = 'https://abr.business.gov.au/json/AbnDetails.aspx';
+        const ABN_LOOKUP_GUID = '24d9b572-5019-4e2c-8015-ebcfd48ecc1f';
+
+        function validateABNFormat(abn) {
+            const clean = abn.replace(/\s/g, '');
+            return /^\d{11}$/.test(clean);
+        }
+
+        async function verifyABN(partyType) {
+            let abnFieldId, nameFieldId, statusElementId, detailsElementId;
+
+            if (partyType === 'company') {
+                abnFieldId = 'companyABN';
+                nameFieldId = 'companyName';
+                statusElementId = 'companyABNStatus';
+                detailsElementId = 'companyABNDetails';
+            } else if (partyType === 'buyer') {
+                abnFieldId = 'buyerABN';
+                nameFieldId = 'buyerName';
+                statusElementId = 'buyerABNStatus';
+                detailsElementId = 'buyerABNDetails';
+            } else if (partyType === 'target') {
+                abnFieldId = 'targetCompanyABN';
+                nameFieldId = 'targetCompanyName';
+                statusElementId = 'targetABNStatus';
+                detailsElementId = 'targetABNDetails';
+            }
+
+            const abnInput = document.getElementById(abnFieldId);
+            if (!abnInput) return;
+
+            const abn = abnInput.value.trim();
+            const statusElement = document.getElementById(statusElementId);
+            const detailsElement = document.getElementById(detailsElementId);
+
+            if (!detailsElement) return;
+
+            if (!validateABNFormat(abn)) {
+                statusElement.className = 'abn-status invalid';
+                statusElement.innerHTML = '<span class="abn-status-icon">✗</span>Invalid ABN format - Expected: XX XXX XXX XXX';
+                statusElement.style.display = 'flex';
+                detailsElement.style.display = 'none';
+                return;
+            }
+
+            statusElement.className = 'abn-status pending';
+            statusElement.innerHTML = '<span class="spinner-small"></span>Verifying ABN...';
+            statusElement.style.display = 'flex';
+
+            try {
+                const cleanABN = abn.replace(/\s/g, '');
+                
+                return new Promise((resolve, reject) => {
+                    const callbackName = 'abnCallback_' + Math.random().toString(36).substr(2, 9);
+                    
+                    window[callbackName] = function(data) {
+                        delete window[callbackName];
+                        if (script && document.body.contains(script)) {
+                            document.body.removeChild(script);
+                        }
+                        
+                        if (data && data.Abn) {
+                            statusElement.className = 'abn-status valid';
+                            statusElement.innerHTML = '<span class="abn-status-icon">✓</span>ABN verified successfully';
+                            
+                            detailsElement.style.display = 'block';
+                            detailsElement.innerHTML = `
+                                <dl>
+                                    <dt>Entity Name:</dt><dd>${data.EntityName || 'N/A'}</dd>
+                                    <dt>ACN:</dt><dd>${data.Acn || 'N/A'}</dd>
+                                    <dt>Entity Status:</dt><dd>${data.EntityStatus || 'N/A'}</dd>
+                                    ${data.BusinessAddress ? `<dt>Address:</dt><dd>${data.BusinessAddress}</dd>` : ''}
+                                </dl>
+                            `;
+
+                            const nameField = document.getElementById(nameFieldId);
+                            if (nameField && !nameField.value && data.EntityName) {
+                                nameField.value = data.EntityName;
+                                nameField.style.borderColor = '#107c10';
+                                setTimeout(() => {
+                                    nameField.style.borderColor = '';
+                                }, 2000);
+                                updateProgress();
+                            }
+                        } else {
+                            statusElement.className = 'abn-status invalid';
+                            statusElement.innerHTML = '<span class="abn-status-icon">✗</span>ABN not found in Australian Business Register';
+                            detailsElement.style.display = 'none';
+                        }
+                        resolve();
+                    };
+
+                    window[callbackName + '_error'] = function() {
+                        delete window[callbackName];
+                        delete window[callbackName + '_error'];
+                        if (script && document.body.contains(script)) {
+                            document.body.removeChild(script);
+                        }
+                        
+                        statusElement.className = 'abn-status invalid';
+                        statusElement.innerHTML = '<span class="abn-status-icon">✗</span>ABN lookup failed - please try again';
+                        detailsElement.style.display = 'none';
+                        reject(new Error('ABN lookup failed'));
+                    };
+
+                    const script = document.createElement('script');
+                    script.src = `${ABN_LOOKUP_API}?abn=${cleanABN}&guid=${ABN_LOOKUP_GUID}&callback=${callbackName}`;
+                    script.onerror = window[callbackName + '_error'];
+                    script.type = 'text/javascript';
+                    document.body.appendChild(script);
+
+                    // 10 second timeout
+                    setTimeout(() => {
+                        if (window[callbackName]) {
+                            window[callbackName + '_error']();
+                        }
+                    }, 10000);
+                });
+            } catch (error) {
+                console.error('ABN verification error:', error);
+                statusElement.className = 'abn-status invalid';
+                statusElement.innerHTML = '<span class="abn-status-icon">✗</span>Verification failed';
+                detailsElement.style.display = 'none';
+            }
+        }
+
+        // Auto-verify on blur/onchange
+        document.addEventListener('DOMContentLoaded', function() {
+            const abnFields = ['companyABN', 'buyerABN', 'targetCompanyABN'];
+            abnFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (field) {
+                    field.addEventListener('blur', function() {
+                        const type = fieldId.includes('company') && !fieldId.includes('target') ? 'company' : 
+                                    fieldId.includes('buyer') ? 'buyer' : 
+                                    fieldId.includes('target') ? 'target' : null;
+                        if (type && this.value.trim()) {
+                            verifyABN(type);
+                        }
+                    });
+                }
+            });
+        });
+
+        function switchSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+            // Show selected section
+            const section = document.getElementById(sectionId);
+            if (section) {
+                section.classList.add('active');
+                updateProgress();
+                generateReviewSummary();
+            }
+
+            // Update nav
+            const navItems = document.querySelectorAll('.nav-item');
+            const index = sectionOrder.indexOf(sectionId);
+            if (index >= 0 && index < navItems.length) {
+                navItems[index].classList.add('active');
+            }
+        }
+
+        function getNextSection(currentId) {
+            const index = sectionOrder.indexOf(currentId);
+            return index < sectionOrder.length - 1 ? sectionOrder[index + 1] : currentId;
+        }
+
+        function getPreviousSection(currentId) {
+            const index = sectionOrder.indexOf(currentId);
+            return index > 0 ? sectionOrder[index - 1] : currentId;
+        }
+
+        function updateProgress() {
+            const form = document.getElementById('termSheetForm');
+            const inputs = form.querySelectorAll('input[required], textarea[required], select[required]');
+            let filled = 0;
+
+            inputs.forEach(input => {
+                if (input.value && input.value.trim() !== '') {
+                    filled++;
+                }
+            });
+
+            const progress = Math.round((filled / inputs.length) * 100);
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('progressPercent').textContent = progress;
+        }
+
+        function generateReviewSummary() {
+            const summaryDiv = document.getElementById('reviewSummary');
+            if (!summaryDiv) return;
+
+            const data = {
+                'Seller': document.getElementById('companyName').value || '—',
+                'Buyer': document.getElementById('buyerName').value || '—',
+                'Target Company': document.getElementById('targetCompanyName').value || '—',
+                'Purchase Price': document.getElementById('purchasePrice').value ? `A$${parseFloat(document.getElementById('purchasePrice').value).toLocaleString()}` : '—',
+                'Deposit': document.getElementById('depositAmount').value ? `A$${parseFloat(document.getElementById('depositAmount').value).toLocaleString()}` : '—',
+                'Term Sheet Type': document.querySelector('input[name="termSheetType"]:checked')?.value || '—',
+                'Completion Date': document.getElementById('completionDate').value || '—',
+                'Jurisdiction': document.getElementById('jurisdiction').value || '—'
+            };
+
+            let html = '<div style="background: #f5f5f5; padding: 20px; border-radius: 4px;">';
+            for (const [key, value] of Object.entries(data)) {
+                html += `<div style="margin-bottom: 12px;"><strong>${key}:</strong> ${value}</div>`;
+            }
+            html += '</div>';
+
+            summaryDiv.innerHTML = html;
+        }
+
+        // Handle exclusivity conditional display
+        document.querySelectorAll('input[name="exclusivityRequired"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                document.getElementById('exclusivityFields').style.display = this.value === 'yes' ? 'block' : 'none';
+            });
+        });
+
+        // Form submission
+        document.getElementById('termSheetForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            submissionTimestamp = new Date();
+            console.log('Form submitted at:', submissionTimestamp.toISOString());
+
+            // Collect form data
+            const formData = {
+                seller: {
+                    name: document.getElementById('companyName').value,
+                    abn: document.getElementById('companyABN').value,
+                    abnVerified: document.getElementById('companyABNStatus').style.display !== 'none' && 
+                                 document.getElementById('companyABNStatus').classList.contains('valid')
+                },
+                buyer: {
+                    name: document.getElementById('buyerName').value,
+                    abn: document.getElementById('buyerABN').value,
+                    abnVerified: document.getElementById('buyerABNStatus').style.display !== 'none' && 
+                                 document.getElementById('buyerABNStatus').classList.contains('valid')
+                },
+                targetCompany: {
+                    name: document.getElementById('targetCompanyName').value,
+                    abn: document.getElementById('targetCompanyABN').value,
+                    acn: document.getElementById('targetCompanyACN').value,
+                    abnVerified: document.getElementById('targetABNStatus').style.display !== 'none' && 
+                                 document.getElementById('targetABNStatus').classList.contains('valid')
+                },
+                transaction: {
+                    purchasePrice: parseFloat(document.getElementById('purchasePrice').value),
+                    depositAmount: parseFloat(document.getElementById('depositAmount').value),
+                    baseNetAssets: parseFloat(document.getElementById('baseNetAssets').value)
+                },
+                dates: {
+                    termSheetDate: document.getElementById('termSheetDate').value,
+                    dueDiligenceDate: document.getElementById('dueDiligenceDate').value,
+                    longFormDate: document.getElementById('longFormDate').value,
+                    conditionSatisfactionDate: document.getElementById('conditionSatisfactionDate').value,
+                    completionDate: document.getElementById('completionDate').value
+                },
+                conditions: {
+                    dueDiligenceType: document.querySelector('input[name="dueDiligenceType"]:checked')?.value,
+                    infoRequestDays: parseInt(document.getElementById('infoRequestDays').value),
+                    accessPeriodDays: parseInt(document.getElementById('accessPeriodDays').value),
+                    additionalConditions: document.getElementById('additionalConditions').value
+                },
+                warranties: {
+                    structure: document.querySelector('input[name="warrantyStructure"]:checked')?.value,
+                    taxIndemnity: document.getElementById('taxIndemnity').checked,
+                    limitations: document.getElementById('additionalWarranties').value
+                },
+                commercial: {
+                    nonCompetePeriod: parseInt(document.getElementById('nonCompetePeriod').value),
+                    nonSolicitationPeriod: parseInt(document.getElementById('nonSolicitationPeriod').value),
+                    exclusivityRequired: document.querySelector('input[name="exclusivityRequired"]:checked')?.value,
+                    exclusivityEndDate: document.getElementById('exclusivityEndDate').value,
+                    liquidatedDamages: parseFloat(document.getElementById('liquidatedDamages').value)
+                },
+                management: {
+                    directorsResign: document.getElementById('directorsResign').value,
+                    directorsNewAgreements: document.getElementById('directorsNewAgreements').value,
+                    retentionPersonnel: document.getElementById('retentionPersonnel').value
+                },
+                legal: {
+                    termSheetType: document.querySelector('input[name="termSheetType"]:checked')?.value,
+                    jurisdiction: document.getElementById('jurisdiction').value,
+                    jurisdictionType: document.querySelector('input[name="jurisdictionType"]:checked')?.value,
+                    governingLaw: document.getElementById('governingLaw').value,
+                    buyerSignatories: document.getElementById('buyerSignatories').value,
+                    sellerSignatories: document.getElementById('sellerSignatories').value,
+                    suppliersSchedule: document.getElementById('suppliersSchedule').value,
+                    customersSchedule: document.getElementById('customersSchedule').value
+                }
+            };
+
+            // Show loading state
+            document.getElementById('termSheetForm').style.display = 'none';
+            document.getElementById('loadingState').style.display = 'block';
+
+            try {
+                await generateTermSheet(formData);
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('successMessage').style.display = 'block';
+            } catch (error) {
+                alert('Error generating term sheet: ' + error.message);
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('termSheetForm').style.display = 'block';
+            }
+        });
+
+        // GitHub Configuration
+        const GITHUB_CONFIG = {
+            owner: 'ldemestrevisaflow',
+            repo: 'Term-Sheet-Generator',
+            branch: 'main'
+        };
+
+        async function getGitHubToken() {
+            let token = localStorage.getItem('github_token_termsheet');
+
+            if (!token) {
+                token = prompt(
+                    'GitHub Authentication Required\n\n' +
+                    'Please enter your GitHub Personal Access Token.\n\n' +
+                    'To create one:\n' +
+                    '1. Go to GitHub.com → Settings → Developer settings → Personal access tokens\n' +
+                    '2. Generate new token (classic)\n' +
+                    '3. Select scopes: repo (all)\n' +
+                    '4. Copy the token and paste it here\n\n' +
+                    'Your token will be saved securely in your browser.'
+                );
+
+                if (token) {
+                    localStorage.setItem('github_token_termsheet', token);
+                } else {
+                    throw new Error('GitHub authentication is required to generate term sheets');
+                }
+            }
+
+            return token;
+        }
+
+        async function commitToGitHub(data) {
+            const token = await getGitHubToken();
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const fileName = `term_sheet_data/ts_${timestamp}.json`;
+            const content = btoa(JSON.stringify(data, null, 2));
+
+            const message = `Generated Term Sheet data for ${data.seller.name}`;
+
+            const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${fileName}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        content: content,
+                        branch: GITHUB_CONFIG.branch
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(`GitHub API error: ${error.message}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                if (error.message.includes('401') || error.message.includes('Bad credentials')) {
+                    localStorage.removeItem('github_token_termsheet');
+                    throw new Error('GitHub authentication failed. Please try again with a valid token.');
+                }
+                throw error;
+            }
+        }
+
+        async function waitForWorkflow(submissionTime, retries = 60, delay = 3000) {
+            const token = await getGitHubToken();
+
+            console.log('Submission time:', submissionTime.toISOString());
+            console.log('Looking for documents created after:', submissionTime);
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const url = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/generated_documents`;
+
+                    const response = await fetch(url, {
+                        headers: {
+                            'Authorization': `token ${token}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        const files = await response.json();
+
+                        const filesWithTime = files
+                            .filter(f => f.name.startsWith('TS_') && f.name.endsWith('.docx'))
+                            .map(f => {
+                                const match = f.name.match(/TS_(\d{8})_(\d{6})\.docx/);
+                                if (match) {
+                                    const dateStr = match[1];
+                                    const timeStr = match[2];
+                                    const year = dateStr.substring(0, 4);
+                                    const month = dateStr.substring(4, 6);
+                                    const day = dateStr.substring(6, 8);
+                                    const hour = timeStr.substring(0, 2);
+                                    const minute = timeStr.substring(2, 4);
+                                    const second = timeStr.substring(4, 6);
+
+                                    const fileDate = new Date(Date.UTC(year, month-1, day, hour, minute, second));
+                                    return { ...f, timestamp: fileDate };
+                                }
+                                return null;
+                            })
+                            .filter(f => f !== null);
+
+                        console.log(`Found ${filesWithTime.length} total Term Sheet files`);
+
+                        const buffer = 5000;
+                        const submissionWithBuffer = new Date(submissionTime.getTime() - buffer);
+
+                        const newFiles = filesWithTime
+                            .filter(f => {
+                                const isNew = f.timestamp > submissionWithBuffer;
+                                console.log(`  ${f.name}: ${f.timestamp.toISOString()} ${isNew ? '[NEW]' : '[old]'}`);
+                                return isNew;
+                            })
+                            .sort((a, b) => b.timestamp - a.timestamp);
+
+                        if (newFiles.length > 0) {
+                            console.log('SUCCESS: Found new document:', newFiles[0].name);
+                            console.log('Created at:', newFiles[0].timestamp.toISOString());
+                            return newFiles[0].download_url;
+                        } else {
+                            console.log(`Attempt ${i + 1}/${retries}: No new documents yet, waiting...`);
+                        }
+                    }
+                } catch (error) {
+                    console.log('Error checking for document:', error.message);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, delay));
+
+                const elapsed = Math.round((i + 1) * delay / 1000);
+                document.querySelector('#loadingState p:last-child').textContent =
+                    `Checking for your document... ${elapsed}s elapsed (attempt ${i + 1}/${retries})`;
+            }
+
+            const timeoutSeconds = Math.round(retries * delay / 1000);
+            throw new Error(
+                `Document generation timed out after ${timeoutSeconds} seconds.\n\n` +
+                `Your data has been submitted, but the document is still being generated.\n` +
+                `Please check the GitHub Actions tab or refresh this page in a minute.`
+            );
+        }
+
+        async function generateTermSheet(data) {
+            try {
+                localStorage.setItem('termSheetData_backup', JSON.stringify(data, null, 2));
+
+                console.log('Committing data to GitHub...');
+                await commitToGitHub(data);
+                console.log('Data committed successfully');
+
+                console.log('Waiting for GitHub Actions workflow to generate document...');
+                console.log('This typically takes 90-120 seconds');
+
+                const downloadUrl = await waitForWorkflow(submissionTimestamp);
+
+                const downloadLink = document.getElementById('downloadLink');
+                downloadLink.href = downloadUrl;
+                downloadLink.download = `TermSheet_${data.seller.name.replace(/\s+/g, '_')}.docx`;
+
+                console.log('Term Sheet generated successfully!');
+                console.log('Download URL:', downloadUrl);
+
+            } catch (error) {
+                console.error('Generation error:', error);
+                throw error;
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        // Update progress on input change
+        document.addEventListener('change', updateProgress);
+        document.addEventListener('input', updateProgress);
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', updateProgress);
+    </script>
+</body>
+</html>

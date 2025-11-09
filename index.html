@@ -502,7 +502,8 @@
                 <button class="nav-item" onclick="switchSection('commercial')">6. Commercial</button>
                 <button class="nav-item" onclick="switchSection('management')">7. Management</button>
                 <button class="nav-item" onclick="switchSection('legal')">8. Legal</button>
-                <button class="nav-item" onclick="switchSection('review')">9. Review</button>
+                <button class="nav-item" onclick="switchSection('github')">9. GitHub Auth</button>
+                <button class="nav-item" onclick="switchSection('review')">10. Review</button>
             </div>
 
             <div class="progress-section">
@@ -905,7 +906,30 @@
                     </div>
                 </div>
 
-                <!-- Section 9: Review -->
+                <!-- Section 9: GitHub Token -->
+                <div class="section" id="github">
+                    <div class="card">
+                        <h2 class="card-title">GitHub Authentication</h2>
+                        <p class="card-subtitle">Required to generate and save your term sheet</p>
+
+                        <div class="form-grid full">
+                            <div class="form-group">
+                                <label class="form-label required">GitHub Personal Access Token</label>
+                                <input type="password" id="githubToken" class="form-control" required 
+                                       placeholder="Paste your GitHub personal access token (classic)">
+                                <p style="font-size: 12px; color: #717171; margin-top: 8px;">
+                                    ℹ️ Create token: <a href="https://github.com/settings/tokens" target="_blank" style="color: #fd5107; text-decoration: underline;">GitHub Settings → Developer settings → Personal access tokens</a>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="info-box">
+                            <strong>🔒 Security:</strong> Your token is only used to submit data to your GitHub repository. It is never stored permanently or transmitted anywhere else.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 10: Review -->
                 <div class="section" id="review">
                     <div class="card">
                         <h2 class="card-title">Review & Generate</h2>
@@ -986,7 +1010,7 @@
 
     <script>
         let submissionTimestamp = null;
-        const sectionOrder = ['basic', 'transaction', 'dates', 'conditions', 'warranties', 'commercial', 'management', 'legal', 'review'];
+        const sectionOrder = ['basic', 'transaction', 'dates', 'conditions', 'warranties', 'commercial', 'management', 'legal', 'github', 'review'];
 
         // Real ABN Lookup API from ABR
         const ABN_LOOKUP_API = 'https://abr.business.gov.au/json/AbnDetails.aspx';
@@ -1309,6 +1333,13 @@
         };
 
         async function getGitHubToken() {
+            // First try to get from form input
+            const tokenInput = document.getElementById('githubToken');
+            if (tokenInput && tokenInput.value.trim()) {
+                return tokenInput.value.trim();
+            }
+
+            // Fallback to localStorage
             let token = localStorage.getItem('github_token_termsheet');
 
             if (!token) {
@@ -1319,8 +1350,7 @@
                     '1. Go to GitHub.com → Settings → Developer settings → Personal access tokens\n' +
                     '2. Generate new token (classic)\n' +
                     '3. Select scopes: repo (all)\n' +
-                    '4. Copy the token and paste it here\n\n' +
-                    'Your token will be saved securely in your browser.'
+                    '4. Copy the token and paste it here'
                 );
 
                 if (token) {

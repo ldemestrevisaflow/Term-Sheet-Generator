@@ -1,217 +1,167 @@
 name: Generate Term Sheet with Conditional Logic
 
 on:
-  # Manual trigger from GitHub UI
-  workflow_dispatch:
-    inputs:
-      formDataJson:
-        description: 'Form data as JSON'
-        required: true
-        type: string
-        default: '{"bindingStatus":"binding","dueDiligenceStructure":"unstructured","depositAmount":500000,"escrowRequired":true,"exclusivityRequired":true,"jurisdiction":"exclusive"}'
-  
-  # Trigger from webhook (e.g., form submission)
-  repository_dispatch:
-    types: [generate-term-sheet]
-
-env:
-  PYTHON_VERSION: '3.9'
+  push:
+    paths:
+      - 'term_sheet_data/*.json'
+    branches:
+      - main
 
 jobs:
-  determine-option:
-    name: Determine Which Option (1-9)
-    runs-on: ubuntu-latest
-    
-    outputs:
-      template_variant: ${{ steps.determine.outputs.template_variant }}
-      option_number: ${{ steps.determine.outputs.option_number }}
-      binding_status: ${{ steps.determine.outputs.binding_status }}
-      description: ${{ steps.determine.outputs.description }}
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Determine term sheet option
-        id: determine
-        run: |
-          python << 'PYTHON'
-          import json
-          import sys
-          sys.path.insert(0, './scripts')
-          from option_selector import determine_term_sheet_option, describe_option
-          
-          # Get form data from input
-          form_data_json = """${{ github.event.inputs.formDataJson }}"""
-          if not form_data_json:
-              form_data_json = """${{ toJson(github.event.client_payload) }}"""
-          
-          try:
-              form_data = json.loads(form_data_json)
-          except json.JSONDecodeError:
-              print("❌ Invalid JSON in form data")
-              form_data = {}
-          
-          # Determine which option (1-9)
-          result = determine_term_sheet_option(form_data)
-          
-          # Output for next steps
-          print(f"::set-output name=template_variant::{result['template_variant']}")
-          print(f"::set-output name=option_number::{result['option_number']}")
-          print(f"::set-output name=binding_status::{result['binding_status']}")
-          print(f"::set-output name=description::{result['description']}")
-          
-          # Log for debugging
-          print(f"\n{'='*80}")
-          print(f"✅ OPTION DETERMINED")
-          print(f"{'='*80}")
-          print(f"Template Variant: {result['template_variant']}")
-          print(f"Option Number:   {result['option_number']}")
-          print(f"Binding Status:  {result['binding_status']}")
-          print(f"Description:     {result['description']}")
-          print(f"{'='*80}\n")
-          PYTHON
-
   generate-document:
-    name: Generate Term Sheet Document
     runs-on: ubuntu-latest
-    needs: determine-option
     
     steps:
-      - uses: actions/checkout@v4
-      
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Install Python dependencies
+          python-version: '3.10'
+
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install python-docx
-      
-      - name: Generate Word document using selected template
-        id: generate
+
+      - name: Find and process latest JSON
         run: |
-          python << 'PYTHON'
+          python << 'PYTHON_SCRIPT'
           import json
           import os
           import glob
           from docx import Document
+          from docx.shared import Pt, RGBColor
+          from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+          # Find latest JSON file
+          json_files = sorted(glob.glob('term_sheet_data/*.json'), key=os.path.getmtime, reverse=True)
           
-          # Use the determined template variant from previous job
-          template_variant = "${{ needs.determine-option.outputs.template_variant }}"
-          option_number = "${{ needs.determine-option.outputs.option_number }}"
-          binding_status = "${{ needs.determine-option.outputs.binding_status }}"
-          
-          # Try multiple possible template locations
-          possible_paths = [
-              f"Term_Sheet_{template_variant}.docx",
-              f"./{template_variant}.docx",
-              f"Term Sheet - Share Sale - Binding_option1(ID 2740).docx",  # Your actual file
-          ]
-          
-          template_path = None
-          for path in possible_paths:
-              if os.path.exists(path):
-                  template_path = path
-                  break
-          
-          # If still not found, search for any .docx file with "binding" in the name
-          if not template_path:
-              docx_files = glob.glob("*.docx")
-              if docx_files:
-                  template_path = docx_files[0]
-                  print(f"⚠️  Template not found with exact name, using: {template_path}")
-              else:
-                  print(f"❌ ERROR: No .docx template files found in repo root!")
-                  print(f"   Looking for: {template_variant}.docx")
-                  print(f"   Available files in root:")
-                  for f in os.listdir('.'):
-                      if f.endswith('.docx'):
-                          print(f"   - {f}")
-                  exit(1)
-          
-          print(f"Loading template: {template_path}")
-          print(f"Option: {option_number}")
-          print(f"Status: {binding_status}")
-          
-          try:
-              # Load the template
-              doc = Document(template_path)
-              
-              # TODO: Add your existing placeholder replacement code here
-              # Example:
-              # for paragraph in doc.paragraphs:
-              #     if '<<SELLER_NAME>>' in paragraph.text:
-              #         paragraph.text = paragraph.text.replace('<<SELLER_NAME>>', form_data['sellerName'])
-              
-              # Save the document
-              output_file = f"Term_Sheet_{template_variant}.docx"
-              doc.save(output_file)
-              
-              file_size = os.path.getsize(output_file)
-              print(f"\n✅ Document generated successfully!")
-              print(f"   File: {output_file}")
-              print(f"   Size: {file_size} bytes")
-              
-              # Output for next step
-              print(f"::set-output name=filename::{output_file}")
-              print(f"::set-output name=size::{file_size}")
-              
-          except Exception as e:
-              print(f"\n❌ ERROR: {str(e)}")
+          if not json_files:
+              print("❌ No JSON files found in term_sheet_data/")
               exit(1)
-          PYTHON
-      
-      - name: Upload document artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: generated-term-sheet
-          path: Term_Sheet_*.docx
-          retention-days: 30
-          if-no-files-found: warn
+          
+          json_file = json_files[0]
+          print(f"📄 Processing: {json_file}")
+          
+          with open(json_file, 'r') as f:
+              data = json.load(f)
+          
+          print(f"✅ JSON loaded successfully")
+          
+          # Create new document
+          doc = Document()
+          
+          # Title
+          title = doc.add_paragraph()
+          title_run = title.add_run('TERM SHEET')
+          title_run.font.size = Pt(24)
+          title_run.font.bold = True
+          title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+          
+          doc.add_paragraph()
+          
+          # 1. PARTIES
+          doc.add_heading('1. PARTIES', level=1)
+          seller = data.get('seller', {})
+          buyer = data.get('buyer', {})
+          target = data.get('targetCompany', {})
+          
+          doc.add_paragraph(f"Seller: {seller.get('name', 'N/A')} (ABN: {seller.get('abn', 'N/A')})", style='List Bullet')
+          doc.add_paragraph(f"Buyer: {buyer.get('name', 'N/A')} (ABN: {buyer.get('abn', 'N/A')})", style='List Bullet')
+          doc.add_paragraph(f"Target: {target.get('name', 'N/A')} (ABN: {target.get('abn', 'N/A')})", style='List Bullet')
+          
+          # 2. TRANSACTION
+          doc.add_heading('2. TRANSACTION DETAILS', level=1)
+          trans = data.get('transaction', {})
+          doc.add_paragraph(f"Purchase Price: A${trans.get('purchasePrice', 0):,.2f}", style='List Bullet')
+          if trans.get('depositAmount'):
+              doc.add_paragraph(f"Deposit Amount: A${trans.get('depositAmount', 0):,.2f}", style='List Bullet')
+          if trans.get('baseNetAssets'):
+              doc.add_paragraph(f"Base Net Assets: A${trans.get('baseNetAssets', 0):,.2f}", style='List Bullet')
+          
+          # 3. KEY DATES
+          doc.add_heading('3. KEY DATES', level=1)
+          dates = data.get('dates', {})
+          doc.add_paragraph(f"Term Sheet Date: {dates.get('termSheetDate', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Due Diligence: {dates.get('dueDiligenceDate', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Long Form Agreement: {dates.get('longFormDate', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Condition Satisfaction: {dates.get('conditionSatisfactionDate', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Completion: {dates.get('completionDate', 'N/A')}", style='List Bullet')
+          
+          # 4. CONDITIONS PRECEDENT
+          doc.add_heading('4. CONDITIONS PRECEDENT', level=1)
+          conditions = data.get('conditions', {})
+          doc.add_paragraph(f"DD Type: {conditions.get('dueDiligenceType', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Information Request Timeline: {conditions.get('infoRequestDays', 'N/A')} days", style='List Bullet')
+          doc.add_paragraph(f"Access Period: {conditions.get('accessPeriodDays', 'N/A')} days", style='List Bullet')
+          if conditions.get('additionalConditions'):
+              doc.add_paragraph(f"Other Conditions: {conditions.get('additionalConditions', '')}", style='List Bullet')
+          
+          # 5. WARRANTIES
+          doc.add_heading('5. WARRANTIES & INDEMNITIES', level=1)
+          warranties = data.get('warranties', {})
+          doc.add_paragraph(f"Structure: {warranties.get('structure', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Tax Indemnity: {'Yes' if warranties.get('taxIndemnity') else 'No'}", style='List Bullet')
+          if warranties.get('limitations'):
+              doc.add_paragraph(f"Limitations: {warranties.get('limitations', '')}", style='List Bullet')
+          
+          # 6. COMMERCIAL TERMS
+          doc.add_heading('6. COMMERCIAL TERMS', level=1)
+          commercial = data.get('commercial', {})
+          doc.add_paragraph(f"Non-Compete: {commercial.get('nonCompetePeriod', 0)} years", style='List Bullet')
+          doc.add_paragraph(f"Non-Solicitation: {commercial.get('nonSolicitationPeriod', 0)} months", style='List Bullet')
+          doc.add_paragraph(f"Exclusivity Required: {commercial.get('exclusivityRequired', 'N/A')}", style='List Bullet')
+          if commercial.get('exclusivityRequired') == 'yes':
+              doc.add_paragraph(f"  - End Date: {commercial.get('exclusivityEndDate', 'N/A')}", style='List Bullet 2')
+              doc.add_paragraph(f"  - Liquidated Damages: A${commercial.get('liquidatedDamages', 0):,.2f}", style='List Bullet 2')
+          
+          # 7. MANAGEMENT
+          doc.add_heading('7. MANAGEMENT & KEY PERSONNEL', level=1)
+          management = data.get('management', {})
+          if management.get('directorsResign'):
+              doc.add_paragraph(f"Directors to Resign: {management.get('directorsResign', '')}", style='List Bullet')
+          if management.get('directorsNewAgreements'):
+              doc.add_paragraph(f"Directors New Agreements: {management.get('directorsNewAgreements', '')}", style='List Bullet')
+          if management.get('retentionPersonnel'):
+              doc.add_paragraph(f"Retention: {management.get('retentionPersonnel', '')}", style='List Bullet')
+          
+          # 8. LEGAL
+          doc.add_heading('8. LEGAL TERMS', level=1)
+          legal = data.get('legal', {})
+          doc.add_paragraph(f"Term Sheet Type: {legal.get('termSheetType', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Jurisdiction: {legal.get('jurisdiction', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Jurisdiction Type: {legal.get('jurisdictionType', 'N/A')}", style='List Bullet')
+          doc.add_paragraph(f"Governing Law: {legal.get('governingLaw', 'N/A')}", style='List Bullet')
+          
+          if legal.get('buyerSignatories'):
+              doc.add_paragraph(f"Buyer Signatories: {legal.get('buyerSignatories', '')}", style='List Bullet')
+          if legal.get('sellerSignatories'):
+              doc.add_paragraph(f"Seller Signatories: {legal.get('sellerSignatories', '')}", style='List Bullet')
+          if legal.get('suppliersSchedule'):
+              doc.add_paragraph(f"Key Suppliers: {legal.get('suppliersSchedule', '')}", style='List Bullet')
+          if legal.get('customersSchedule'):
+              doc.add_paragraph(f"Key Customers: {legal.get('customersSchedule', '')}", style='List Bullet')
+          
+          # Save document
+          os.makedirs('generated_documents', exist_ok=True)
+          seller_name = seller.get('name', 'TermSheet').replace(' ', '_').replace('/', '_')[:50]
+          filename = f"generated_documents/TermSheet_{seller_name}.docx"
+          doc.save(filename)
+          
+          file_size = os.path.getsize(filename)
+          print(f"✅ Document generated successfully!")
+          print(f"   File: {filename}")
+          print(f"   Size: {file_size:,} bytes")
+          PYTHON_SCRIPT
 
-  notify-success:
-    name: Notify Success
-    runs-on: ubuntu-latest
-    needs: [determine-option, generate-document]
-    if: success()
-    
-    steps:
-      - name: Create success summary
+      - name: Commit and push
         run: |
-          echo "✅ TERM SHEET GENERATED SUCCESSFULLY!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Details" >> $GITHUB_STEP_SUMMARY
-          echo "**Template Variant:** ${{ needs.determine-option.outputs.template_variant }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Option Number:** ${{ needs.determine-option.outputs.option_number }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Description:** ${{ needs.determine-option.outputs.description }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "1. Download the generated document from Artifacts" >> $GITHUB_STEP_SUMMARY
-          echo "2. Review for accuracy" >> $GITHUB_STEP_SUMMARY
-          echo "3. Distribute to parties" >> $GITHUB_STEP_SUMMARY
-
-  notify-failure:
-    name: Notify Failure
-    runs-on: ubuntu-latest
-    needs: [determine-option, generate-document]
-    if: failure()
-    
-    steps:
-      - name: Create failure summary
-        run: |
-          echo "❌ TERM SHEET GENERATION FAILED!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Selected Option:** ${{ needs.determine-option.outputs.template_variant }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Troubleshooting" >> $GITHUB_STEP_SUMMARY
-          echo "1. Check if template file exists in repo root" >> $GITHUB_STEP_SUMMARY
-          echo "2. Verify file is a .docx file" >> $GITHUB_STEP_SUMMARY
-          echo "3. Check workflow logs for details" >> $GITHUB_STEP_SUMMARY
-          exit 1
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Actions"
+          git add generated_documents/
+          git diff --quiet && git diff --staged --quiet || git commit -m "🤖 Generated term sheet from JSON"
+          git push || echo "No changes to push"

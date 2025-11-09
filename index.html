@@ -502,8 +502,7 @@
                 <button class="nav-item" onclick="switchSection('commercial')">6. Commercial</button>
                 <button class="nav-item" onclick="switchSection('management')">7. Management</button>
                 <button class="nav-item" onclick="switchSection('legal')">8. Legal</button>
-                <button class="nav-item" onclick="switchSection('github')">9. GitHub Auth</button>
-                <button class="nav-item" onclick="switchSection('review')">10. Review</button>
+                <button class="nav-item" onclick="switchSection('review')">9. Review</button>
             </div>
 
             <div class="progress-section">
@@ -906,31 +905,47 @@
                     </div>
                 </div>
 
-                <!-- Section 9: GitHub Token -->
-                <div class="section" id="github">
+                <!-- Section 9: Review (with GitHub Token dropdown) -->
+                <div class="section" id="review">
                     <div class="card">
-                        <h2 class="card-title">GitHub Authentication</h2>
-                        <p class="card-subtitle">Required to generate and save your term sheet</p>
+                        <h2 class="card-title">Template Selection</h2>
+                        <p class="card-subtitle">Select a pre-configured template or customize your own</p>
 
-                        <div class="form-grid full">
-                            <div class="form-group">
-                                <label class="form-label required">GitHub Personal Access Token</label>
-                                <input type="password" id="githubToken" class="form-control" required 
-                                       placeholder="Paste your GitHub personal access token (classic)">
-                                <p style="font-size: 12px; color: #717171; margin-top: 8px;">
-                                    ℹ️ Create token: <a href="https://github.com/settings/tokens" target="_blank" style="color: #fd5107; text-decoration: underline;">GitHub Settings → Developer settings → Personal access tokens</a>
-                                </p>
-                            </div>
-                        </div>
+                        <div class="form-group">
+                            <label class="form-label required">Term Sheet Template</label>
+                            <select id="templateSelector" class="form-control" onchange="applyTemplate(this.value)">
+                                <option value="">-- Select Template --</option>
+                                
+                                <optgroup label="Binding Term Sheet – SSA">
+                                    <option value="binding1">Option 1: Binding, Structured, No Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="binding2">Option 2: Binding, Unstructured, No Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="binding3">Option 3: Binding, Structured, Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="binding4">Option 4: Binding, Unstructured, Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="binding5">Option 5: Binding, Unstructured, No Deposit, No Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="binding6">Option 6: Binding, Unstructured, Deposit, No Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="binding7">Option 7: Binding, Unstructured, Deposit, Escrow Agent, No Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="binding8">Option 8: Binding, Unstructured, Deposit, Escrow Agent, Exclusivity, Non-Exclusive Jurisdiction</option>
+                                    <option value="binding9">Option 9: Binding, Unstructured, Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                </optgroup>
 
-                        <div class="info-box">
-                            <strong>🔒 Security:</strong> Your token is only used to submit data to your GitHub repository. It is never stored permanently or transmitted anywhere else.
+                                <optgroup label="Non-Binding Term Sheet – SSA">
+                                    <option value="nonbinding1">Option 1: Non-Binding, Structured, No Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="nonbinding2">Option 2: Non-Binding, Unstructured, No Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="nonbinding3">Option 3: Non-Binding, Structured, Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="nonbinding4">Option 4: Non-Binding, Unstructured, Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="nonbinding5">Option 5: Non-Binding, Unstructured, No Deposit, No Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="nonbinding6">Option 6: Non-Binding, Unstructured, Deposit, No Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="nonbinding7">Option 7: Non-Binding, Unstructured, Deposit, Escrow Agent, No Exclusivity, Exclusive Jurisdiction</option>
+                                    <option value="nonbinding8">Option 8: Non-Binding, Unstructured, Deposit, Escrow Agent, Exclusivity, Non-Exclusive Jurisdiction</option>
+                                    <option value="nonbinding9">Option 9: Non-Binding, Unstructured, Deposit, Escrow Agent, Exclusivity, Exclusive Jurisdiction</option>
+                                </optgroup>
+                            </select>
+                            <p style="font-size: 12px; color: var(--pwc-gray); margin-top: 8px;">
+                                ℹ️ Selecting a template will auto-populate the form with pre-configured settings. You can still customize any field.
+                            </p>
                         </div>
                     </div>
-                </div>
 
-                <!-- Section 10: Review -->
-                <div class="section" id="review">
                     <div class="card">
                         <h2 class="card-title">Review & Generate</h2>
                         <p class="card-subtitle">Review all details before generating the term sheet</p>
@@ -940,6 +955,18 @@
                         </div>
 
                         <div id="reviewSummary" style="margin-top: 20px;"></div>
+
+                        <div class="card" style="margin-top: 30px; background: #f9f9f9;">
+                            <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 15px; color: var(--pwc-dark);">GitHub Authentication</h3>
+                            <div class="form-group">
+                                <label class="form-label required">GitHub Personal Access Token</label>
+                                <input type="password" id="githubToken" class="form-control" required 
+                                       placeholder="Paste your GitHub personal access token">
+                                <p style="font-size: 12px; color: var(--pwc-gray); margin-top: 8px;">
+                                    ℹ️ Your token is only used to submit data to GitHub. It's never stored permanently.
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="button-group">
@@ -1010,7 +1037,7 @@
 
     <script>
         let submissionTimestamp = null;
-        const sectionOrder = ['basic', 'transaction', 'dates', 'conditions', 'warranties', 'commercial', 'management', 'legal', 'github', 'review'];
+        const sectionOrder = ['basic', 'transaction', 'dates', 'conditions', 'warranties', 'commercial', 'management', 'legal', 'review'];
 
         // Real ABN Lookup API from ABR
         const ABN_LOOKUP_API = 'https://abr.business.gov.au/json/AbnDetails.aspx';
@@ -1235,6 +1262,82 @@
             });
         });
 
+        // Template configurations
+        const templates = {
+            binding1: { termSheetType: 'binding', dueDiligenceType: 'structured', depositAmount: '', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            binding2: { termSheetType: 'binding', dueDiligenceType: 'unstructured', depositAmount: '', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            binding3: { termSheetType: 'binding', dueDiligenceType: 'structured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            binding4: { termSheetType: 'binding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            binding5: { termSheetType: 'binding', dueDiligenceType: 'unstructured', depositAmount: '', escrowAgent: false, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            binding6: { termSheetType: 'binding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: false, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            binding7: { termSheetType: 'binding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'no', jurisdictionType: 'exclusive' },
+            binding8: { termSheetType: 'binding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'non-exclusive' },
+            binding9: { termSheetType: 'binding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            nonbinding1: { termSheetType: 'nonbinding', dueDiligenceType: 'structured', depositAmount: '', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            nonbinding2: { termSheetType: 'nonbinding', dueDiligenceType: 'unstructured', depositAmount: '', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            nonbinding3: { termSheetType: 'nonbinding', dueDiligenceType: 'structured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            nonbinding4: { termSheetType: 'nonbinding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            nonbinding5: { termSheetType: 'nonbinding', dueDiligenceType: 'unstructured', depositAmount: '', escrowAgent: false, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            nonbinding6: { termSheetType: 'nonbinding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: false, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' },
+            nonbinding7: { termSheetType: 'nonbinding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'no', jurisdictionType: 'exclusive' },
+            nonbinding8: { termSheetType: 'nonbinding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'non-exclusive' },
+            nonbinding9: { termSheetType: 'nonbinding', dueDiligenceType: 'unstructured', depositAmount: 'required', escrowAgent: true, exclusivityRequired: 'yes', jurisdictionType: 'exclusive' }
+        };
+
+        function applyTemplate(templateId) {
+            if (!templateId || !templates[templateId]) return;
+
+            const config = templates[templateId];
+
+            // Set Term Sheet Type (binding/non-binding)
+            if (config.termSheetType === 'binding') {
+                document.getElementById('typeBinding').checked = true;
+            } else {
+                document.getElementById('typeNonBinding').checked = true;
+            }
+
+            // Set Due Diligence Type (structured/unstructured)
+            if (config.dueDiligenceType === 'structured') {
+                document.getElementById('ddStructured').checked = true;
+            } else {
+                document.getElementById('ddUnstructured').checked = true;
+            }
+
+            // Set Deposit Amount requirement
+            if (config.depositAmount === 'required') {
+                // Make depositAmount required and set a placeholder to indicate it's needed
+                document.getElementById('depositAmount').required = true;
+                document.getElementById('depositAmount').style.borderColor = '#fd5107';
+            } else {
+                document.getElementById('depositAmount').required = false;
+                document.getElementById('depositAmount').style.borderColor = '';
+            }
+
+            // Set Escrow Agent (for now, just add to notes if you have that field)
+            if (!config.escrowAgent) {
+                showToast('⚠️ Note: This template does NOT require an escrow agent');
+            }
+
+            // Set Exclusivity Required
+            if (config.exclusivityRequired === 'yes') {
+                document.getElementById('exclusivityYes').checked = true;
+                document.getElementById('exclusivityFields').style.display = 'block';
+            } else {
+                document.getElementById('exclusivityNo').checked = true;
+                document.getElementById('exclusivityFields').style.display = 'none';
+            }
+
+            // Set Jurisdiction Type (exclusive/non-exclusive)
+            if (config.jurisdictionType === 'exclusive') {
+                document.getElementById('jurisdictionExclusive').checked = true;
+            } else {
+                document.getElementById('jurisdictionNonExclusive').checked = true;
+            }
+
+            updateProgress();
+            showToast(`✅ Template "${templateId.toUpperCase()}" applied!`);
+        }
+
         // Form submission
         document.getElementById('termSheetForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -1333,7 +1436,7 @@
         };
 
         async function getGitHubToken() {
-            // First try to get from form input
+            // First try to get from form input in review section
             const tokenInput = document.getElementById('githubToken');
             if (tokenInput && tokenInput.value.trim()) {
                 return tokenInput.value.trim();
@@ -1424,43 +1527,15 @@
                         const files = await response.json();
 
                         const filesWithTime = files
-                            .filter(f => f.name.startsWith('TS_') && f.name.endsWith('.docx'))
-                            .map(f => {
-                                const match = f.name.match(/TS_(\d{8})_(\d{6})\.docx/);
-                                if (match) {
-                                    const dateStr = match[1];
-                                    const timeStr = match[2];
-                                    const year = dateStr.substring(0, 4);
-                                    const month = dateStr.substring(4, 6);
-                                    const day = dateStr.substring(6, 8);
-                                    const hour = timeStr.substring(0, 2);
-                                    const minute = timeStr.substring(2, 4);
-                                    const second = timeStr.substring(4, 6);
-
-                                    const fileDate = new Date(Date.UTC(year, month-1, day, hour, minute, second));
-                                    return { ...f, timestamp: fileDate };
-                                }
-                                return null;
-                            })
-                            .filter(f => f !== null);
+                            .filter(f => f.name.startsWith('TermSheet_') && f.name.endsWith('.docx'))
+                            .map(f => ({ ...f, name: f.name }));
 
                         console.log(`Found ${filesWithTime.length} total Term Sheet files`);
 
-                        const buffer = 5000;
-                        const submissionWithBuffer = new Date(submissionTime.getTime() - buffer);
-
-                        const newFiles = filesWithTime
-                            .filter(f => {
-                                const isNew = f.timestamp > submissionWithBuffer;
-                                console.log(`  ${f.name}: ${f.timestamp.toISOString()} ${isNew ? '[NEW]' : '[old]'}`);
-                                return isNew;
-                            })
-                            .sort((a, b) => b.timestamp - a.timestamp);
-
-                        if (newFiles.length > 0) {
-                            console.log('SUCCESS: Found new document:', newFiles[0].name);
-                            console.log('Created at:', newFiles[0].timestamp.toISOString());
-                            return newFiles[0].download_url;
+                        if (filesWithTime.length > 0) {
+                            const newestFile = filesWithTime[0];
+                            console.log('SUCCESS: Found document:', newestFile.name);
+                            return newestFile.download_url;
                         } else {
                             console.log(`Attempt ${i + 1}/${retries}: No new documents yet, waiting...`);
                         }

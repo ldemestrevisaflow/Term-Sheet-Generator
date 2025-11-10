@@ -1,11 +1,9 @@
 name: Generate Term Sheet
 
 on:
+  repository_dispatch:
+    types: [generate_term_sheet]
   workflow_dispatch:
-    inputs:
-      data:
-        description: 'Term sheet form data'
-        required: true
 
 permissions:
   contents: write
@@ -21,401 +19,333 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          node-version: '18'
+          python-version: '3.11'
 
       - name: Install dependencies
         run: |
-          npm install docx
-          npm install file-saver
+          python -m pip install --upgrade pip
+          pip install python-docx
 
-      - name: Create generation script
-        run: |
-          cat > generate-term-sheet.js << 'EOFSCRIPT'
-          const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, AlignmentType, BorderStyle, WidthType, convertInchesToTwip } = require('docx');
-          const fs = require('fs');
-          const path = require('path');
+      - name: Process term sheet data and generate documents
+        run: python << 'PYTHON_SCRIPT'
+import os
+import json
+import glob
+from datetime import datetime
+from pathlib import Path
+from docx import Document
+from docx.shared import Pt, RGBColor, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-          async function generateTermSheet(dataJson) {
-            try {
-              const data = JSON.parse(dataJson);
-              
-              // Create document sections
-              const doc = new Document({
-                sections: [{
-                  properties: {},
-                  children: [
-                    // Title
-                    new Paragraph({
-                      text: 'TERM SHEET',
-                      bold: true,
-                      size: 32,
-                      alignment: AlignmentType.CENTER,
-                      spacing: { after: 200 }
-                    }),
-                    new Paragraph({
-                      text: 'SHARE SALE AND PURCHASE',
-                      size: 24,
-                      alignment: AlignmentType.CENTER,
-                      spacing: { after: 600 }
-                    }),
+def sanitize_filename(filename):
+    """Remove or replace problematic characters in filenames"""
+    # Replace & with and, remove other special chars
+    filename = filename.replace('&', 'and')
+    filename = filename.replace('/', '_')
+    filename = filename.replace('\\', '_')
+    filename = filename.replace(':', '_')
+    filename = filename.replace('*', '_')
+    filename = filename.replace('?', '_')
+    filename = filename.replace('"', '_')
+    filename = filename.replace('<', '_')
+    filename = filename.replace('>', '_')
+    filename = filename.replace('|', '_')
+    return filename
 
-                    // 1. PARTIES
-                    new Paragraph({
-                      text: '1. PARTIES',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 400, after: 200 }
-                    }),
-                    new Table({
-                      width: { size: 100, type: WidthType.PERCENTAGE },
-                      rows: [
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Seller:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.seller.name || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Seller ABN:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.seller.abn || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Buyer:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.buyer.name || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Buyer ABN:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.buyer.abn || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Target Company:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.targetCompany.name || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Target ABN:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.targetCompany.abn || '' })] })
-                          ]
-                        })
-                      ]
-                    }),
-                    new Paragraph({ text: '' }),
+def add_heading(doc, text, level=1):
+    """Add a heading to the document"""
+    heading = doc.add_heading(text, level=level)
+    heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    return heading
 
-                    // 2. TRANSACTION DETAILS
-                    new Paragraph({
-                      text: '2. TRANSACTION DETAILS',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 400, after: 200 }
-                    }),
-                    new Table({
-                      width: { size: 100, type: WidthType.PERCENTAGE },
-                      rows: [
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Purchase Price:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: `A$${(data.transaction.purchasePrice || 0).toLocaleString('en-AU', {minimumFractionDigits: 2})}` })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Deposit:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: `A$${(data.transaction.depositAmount || 0).toLocaleString('en-AU', {minimumFractionDigits: 2})}` })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Base Net Assets:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: `A$${(data.transaction.baseNetAssets || 0).toLocaleString('en-AU', {minimumFractionDigits: 2})}` })] })
-                          ]
-                        })
-                      ]
-                    }),
-                    new Paragraph({ text: '' }),
+def add_section_table(doc, data_dict):
+    """Add a formatted table section"""
+    table = doc.add_table(rows=len(data_dict) + 1)
+    table.style = 'Light Grid Accent 1'
+    
+    # Header
+    header_cells = table.rows[0].cells
+    header_cells[0].text = 'Field'
+    header_cells[1].text = 'Value'
+    for cell in header_cells:
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.bold = True
+    
+    # Data rows
+    for i, (key, value) in enumerate(data_dict.items(), 1):
+        row_cells = table.rows[i].cells
+        row_cells[0].text = str(key)
+        row_cells[1].text = str(value) if value else '—'
+    
+    return table
 
-                    // 3. KEY DATES
-                    new Paragraph({
-                      text: '3. KEY DATES',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 400, after: 200 }
-                    }),
-                    new Table({
-                      width: { size: 100, type: WidthType.PERCENTAGE },
-                      rows: [
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Term Sheet Date:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.dates.termSheetDate || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Due Diligence Completion:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.dates.dueDiligenceDate || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Long Form Agreement:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.dates.longFormDate || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Condition Satisfaction:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.dates.conditionSatisfactionDate || '' })] })
-                          ]
-                        }),
-                        new TableRow({
-                          cells: [
-                            new TableCell({ children: [new Paragraph({ text: 'Completion Date:', bold: true })] }),
-                            new TableCell({ children: [new Paragraph({ text: data.dates.completionDate || '' })] })
-                          ]
-                        })
-                      ]
-                    }),
-                    new Paragraph({ text: '' }),
+def format_currency(value):
+    """Format value as Australian currency"""
+    try:
+        num = float(value) if value else 0
+        return f"A${num:,.2f}"
+    except:
+        return str(value) if value else '—'
 
-                    // 4. CONDITIONS PRECEDENT
-                    new Paragraph({
-                      text: '4. CONDITIONS PRECEDENT',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 400, after: 200 }
-                    }),
-                    new Paragraph({
-                      text: `Due Diligence Type: ${data.conditions.dueDiligenceType || 'Unstructured'}`
-                    }),
-                    new Paragraph({
-                      text: `Information Request Timeline: ${data.conditions.infoRequestDays || 10} days`
-                    }),
-                    new Paragraph({
-                      text: `Access Period: ${data.conditions.accessPeriodDays || 30} days`,
-                      spacing: { after: 200 }
-                    }),
-                    ...(data.conditions.additionalConditions ? [
-                      new Paragraph({
-                        text: 'Additional Conditions:',
-                        bold: true,
-                        spacing: { before: 200, after: 100 }
-                      }),
-                      new Paragraph({
-                        text: data.conditions.additionalConditions,
-                        spacing: { after: 200 }
-                      })
-                    ] : []),
+def generate_term_sheet(json_data):
+    """Generate a professional term sheet DOCX from JSON data"""
+    
+    data = json.loads(json_data)
+    doc = Document()
+    
+    # Set default font
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Calibri'
+    font.size = Pt(11)
+    
+    # Title
+    title = doc.add_paragraph()
+    title_run = title.add_run('TERM SHEET')
+    title_run.font.size = Pt(24)
+    title_run.bold = True
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    subtitle = doc.add_paragraph()
+    subtitle_run = subtitle.add_run('SHARE SALE AND PURCHASE')
+    subtitle_run.font.size = Pt(14)
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    doc.add_paragraph()  # Spacing
+    
+    # 1. PARTIES
+    add_heading(doc, '1. PARTIES', level=1)
+    parties_data = {
+        'Seller': data.get('seller', {}).get('name', ''),
+        'Seller ABN': data.get('seller', {}).get('abn', ''),
+        'Buyer': data.get('buyer', {}).get('name', ''),
+        'Buyer ABN': data.get('buyer', {}).get('abn', ''),
+        'Target Company': data.get('targetCompany', {}).get('name', ''),
+        'Target ABN': data.get('targetCompany', {}).get('abn', '')
+    }
+    add_section_table(doc, parties_data)
+    doc.add_paragraph()
+    
+    # 2. TRANSACTION DETAILS
+    add_heading(doc, '2. TRANSACTION DETAILS', level=1)
+    transaction_data = {
+        'Purchase Price': format_currency(data.get('transaction', {}).get('purchasePrice')),
+        'Deposit': format_currency(data.get('transaction', {}).get('depositAmount')),
+        'Base Net Assets': format_currency(data.get('transaction', {}).get('baseNetAssets'))
+    }
+    add_section_table(doc, transaction_data)
+    doc.add_paragraph()
+    
+    # 3. KEY DATES
+    add_heading(doc, '3. KEY DATES', level=1)
+    dates_data = {
+        'Term Sheet Date': data.get('dates', {}).get('termSheetDate', ''),
+        'Due Diligence Completion': data.get('dates', {}).get('dueDiligenceDate', ''),
+        'Long Form Agreement': data.get('dates', {}).get('longFormDate', ''),
+        'Condition Satisfaction': data.get('dates', {}).get('conditionSatisfactionDate', ''),
+        'Completion Date': data.get('dates', {}).get('completionDate', '')
+    }
+    add_section_table(doc, dates_data)
+    doc.add_paragraph()
+    
+    # 4. CONDITIONS PRECEDENT
+    add_heading(doc, '4. CONDITIONS PRECEDENT', level=1)
+    conditions = data.get('conditions', {})
+    conditions_data = {
+        'Due Diligence Type': conditions.get('dueDiligenceType', 'Unstructured'),
+        'Information Request Timeline': f"{conditions.get('infoRequestDays', 10)} days",
+        'Access Period': f"{conditions.get('accessPeriodDays', 30)} days"
+    }
+    add_section_table(doc, conditions_data)
+    
+    if conditions.get('additionalConditions'):
+        doc.add_paragraph('Additional Conditions:', style='Heading 2')
+        doc.add_paragraph(conditions['additionalConditions'])
+    doc.add_paragraph()
+    
+    # 5. WARRANTIES & INDEMNITIES
+    add_heading(doc, '5. WARRANTIES & INDEMNITIES', level=1)
+    warranties = data.get('warranties', {})
+    warranties_data = {
+        'Warranty Structure': warranties.get('structure', 'Joint & Several'),
+        'Tax Indemnity': 'Included' if warranties.get('taxIndemnity') else 'Not Included'
+    }
+    add_section_table(doc, warranties_data)
+    
+    if warranties.get('limitations'):
+        doc.add_paragraph('Warranty Limitations:', style='Heading 2')
+        doc.add_paragraph(warranties['limitations'])
+    doc.add_paragraph()
+    
+    # 6. COMMERCIAL TERMS
+    add_heading(doc, '6. COMMERCIAL TERMS', level=1)
+    commercial = data.get('commercial', {})
+    commercial_data = {
+        'Non-Compete Period': f"{commercial.get('nonCompetePeriod', 3)} years",
+        'Non-Solicitation Period': f"{commercial.get('nonSolicitationPeriod', 12)} months",
+        'Exclusivity Required': 'Yes' if commercial.get('exclusivityRequired') == 'yes' else 'No'
+    }
+    add_section_table(doc, commercial_data)
+    doc.add_paragraph()
+    
+    # 7. MANAGEMENT & KEY PERSONNEL
+    add_heading(doc, '7. MANAGEMENT & KEY PERSONNEL', level=1)
+    management = data.get('management', {})
+    
+    if management.get('directorsResign'):
+        doc.add_paragraph('Directors to Resign:', style='Heading 2')
+        doc.add_paragraph(management['directorsResign'])
+    
+    if management.get('directorsNewAgreements'):
+        doc.add_paragraph('Directors Entering New Agreements:', style='Heading 2')
+        doc.add_paragraph(management['directorsNewAgreements'])
+    
+    if management.get('retentionPersonnel'):
+        doc.add_paragraph('Key Personnel Arrangements:', style='Heading 2')
+        doc.add_paragraph(management['retentionPersonnel'])
+    
+    doc.add_paragraph()
+    
+    # 8. LEGAL & JURISDICTION
+    add_heading(doc, '8. LEGAL & JURISDICTION', level=1)
+    legal = data.get('legal', {})
+    legal_data = {
+        'Jurisdiction': legal.get('jurisdiction', 'New South Wales'),
+        'Jurisdiction Type': 'Exclusive' if legal.get('jurisdictionType') == 'exclusive' else 'Non-Exclusive',
+        'Term Sheet Type': 'Binding' if legal.get('termSheetType') == 'binding' else 'Non-Binding'
+    }
+    add_section_table(doc, legal_data)
+    
+    if legal.get('suppliersSchedule'):
+        doc.add_paragraph('Key Suppliers:', style='Heading 2')
+        doc.add_paragraph(legal['suppliersSchedule'])
+    
+    if legal.get('customersSchedule'):
+        doc.add_paragraph('Key Customers:', style='Heading 2')
+        doc.add_paragraph(legal['customersSchedule'])
+    
+    doc.add_paragraph()
+    
+    # SIGNATURE PAGE
+    doc.add_page_break()
+    add_heading(doc, 'SIGNATURE PAGE', level=1)
+    doc.add_paragraph('Signed by the parties as of the date first written above.')
+    doc.add_paragraph()
+    
+    doc.add_paragraph('FOR AND ON BEHALF OF THE BUYER:', style='Heading 2')
+    doc.add_paragraph()
+    doc.add_paragraph('___________________________')
+    doc.add_paragraph('Signature')
+    doc.add_paragraph()
+    doc.add_paragraph('___________________________')
+    doc.add_paragraph('Name and Title')
+    doc.add_paragraph()
+    doc.add_paragraph()
+    
+    doc.add_paragraph('FOR AND ON BEHALF OF THE SELLER:', style='Heading 2')
+    doc.add_paragraph()
+    doc.add_paragraph('___________________________')
+    doc.add_paragraph('Signature')
+    doc.add_paragraph()
+    doc.add_paragraph('___________________________')
+    doc.add_paragraph('Name and Title')
+    
+    return doc
 
-                    // 5. WARRANTIES & INDEMNITIES
-                    new Paragraph({
-                      text: '5. WARRANTIES & INDEMNITIES',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 400, after: 200 }
-                    }),
-                    new Paragraph({
-                      text: `Warranty Structure: ${data.warranties.structure || 'Joint & Several'}`
-                    }),
-                    new Paragraph({
-                      text: `Tax Indemnity: ${data.warranties.taxIndemnity ? 'Included' : 'Not Included'}`,
-                      spacing: { after: 200 }
-                    }),
-                    ...(data.warranties.limitations ? [
-                      new Paragraph({
-                        text: 'Warranty Limitations:',
-                        bold: true,
-                        spacing: { before: 200, after: 100 }
-                      }),
-                      new Paragraph({
-                        text: data.warranties.limitations,
-                        spacing: { after: 200 }
-                      })
-                    ] : []),
+# Main execution
+print("📄 Processing term sheet data...")
 
-                    // 6. COMMERCIAL TERMS
-                    new Paragraph({
-                      text: '6. COMMERCIAL TERMS',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 400, after: 200 }
-                    }),
-                    new Paragraph({
-                      text: `Non-Compete Period: ${data.commercial.nonCompetePeriod || 3} years`
-                    }),
-                    new Paragraph({
-                      text: `Non-Solicitation Period: ${data.commercial.nonSolicitationPeriod || 12} months`
-                    }),
-                    new Paragraph({
-                      text: `Exclusivity Required: ${data.commercial.exclusivityRequired === 'yes' ? 'Yes' : 'No'}`,
-                      spacing: { after: 200 }
-                    }),
+# Find the most recent JSON file
+json_files = glob.glob('term_sheet_data/*.json')
+if not json_files:
+    print("❌ No JSON data files found")
+    exit(1)
 
-                    // 7. MANAGEMENT & KEY PERSONNEL
-                    new Paragraph({
-                      text: '7. MANAGEMENT & KEY PERSONNEL',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 400, after: 200 }
-                    }),
-                    ...(data.management.directorsResign ? [
-                      new Paragraph({
-                        text: 'Directors to Resign:',
-                        bold: true,
-                        spacing: { after: 100 }
-                      }),
-                      new Paragraph({
-                        text: data.management.directorsResign,
-                        spacing: { after: 200 }
-                      })
-                    ] : []),
-                    ...(data.management.retentionPersonnel ? [
-                      new Paragraph({
-                        text: 'Key Personnel Arrangements:',
-                        bold: true,
-                        spacing: { after: 100 }
-                      }),
-                      new Paragraph({
-                        text: data.management.retentionPersonnel,
-                        spacing: { after: 200 }
-                      })
-                    ] : []),
+# Sort by modification time, get the newest
+latest_json = max(json_files, key=os.path.getmtime)
+print(f"📄 Processing: {latest_json}")
 
-                    // 8. LEGAL & JURISDICTION
-                    new Paragraph({
-                      text: '8. LEGAL & JURISDICTION',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 400, after: 200 }
-                    }),
-                    new Paragraph({
-                      text: `Jurisdiction: ${data.legal.jurisdiction || 'New South Wales'}`
-                    }),
-                    new Paragraph({
-                      text: `Jurisdiction Type: ${data.legal.jurisdictionType === 'exclusive' ? 'Exclusive' : 'Non-Exclusive'}`
-                    }),
-                    new Paragraph({
-                      text: `Term Sheet Type: ${data.legal.termSheetType === 'binding' ? 'Binding' : 'Non-Binding'}`,
-                      spacing: { after: 200 }
-                    }),
+# Read and parse JSON
+try:
+    with open(latest_json, 'r') as f:
+        json_data = f.read()
+    print("✅ JSON loaded successfully")
+except Exception as e:
+    print(f"❌ Failed to read JSON: {e}")
+    exit(1)
 
-                    // SIGNATURE PAGE
-                    new Paragraph({
-                      text: 'SIGNATURE PAGE',
-                      bold: true,
-                      size: 24,
-                      spacing: { before: 600, after: 200 }
-                    }),
-                    new Paragraph({
-                      text: 'Signed by the parties as of the date first written above.',
-                      spacing: { after: 400 }
-                    }),
-                    new Paragraph({
-                      text: 'FOR AND ON BEHALF OF THE BUYER:',
-                      bold: true,
-                      spacing: { before: 200, after: 300 }
-                    }),
-                    new Paragraph({ text: '' }),
-                    new Paragraph({ text: '___________________________' }),
-                    new Paragraph({ text: 'Signature' }),
-                    new Paragraph({ text: '' }),
-                    new Paragraph({ text: '___________________________' }),
-                    new Paragraph({ text: 'Name and Title', spacing: { after: 400 } }),
+# Generate document
+try:
+    doc = generate_term_sheet(json_data)
+    
+    # Create output directory
+    output_dir = 'generated_documents'
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Parse seller name for filename
+    data = json.loads(json_data)
+    seller_name = data.get('seller', {}).get('name', 'TermSheet')
+    
+    # Sanitize the filename
+    safe_name = sanitize_filename(seller_name)
+    
+    # Add timestamp to ensure uniqueness
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f'TermSheet_{safe_name}_{timestamp}.docx'
+    filepath = os.path.join(output_dir, filename)
+    
+    # Save document
+    doc.save(filepath)
+    
+    # Get file size for verification
+    file_size = os.path.getsize(filepath)
+    print(f"✅ Document generated successfully!")
+    print(f"   File: {filename}")
+    print(f"   Size: {file_size} bytes")
+    print(f"   Path: {filepath}")
+    
+except Exception as e:
+    print(f"❌ Failed to generate document: {e}")
+    import traceback
+    traceback.print_exc()
+    exit(1)
 
-                    new Paragraph({
-                      text: 'FOR AND ON BEHALF OF THE SELLER:',
-                      bold: true,
-                      spacing: { before: 200, after: 300 }
-                    }),
-                    new Paragraph({ text: '' }),
-                    new Paragraph({ text: '___________________________' }),
-                    new Paragraph({ text: 'Signature' }),
-                    new Paragraph({ text: '' }),
-                    new Paragraph({ text: '___________________________' }),
-                    new Paragraph({ text: 'Name and Title' })
-                  ]
-                }]
-              });
-
-              // Generate buffer
-              const buffer = await Packer.toBuffer(doc);
-              
-              // Create directory if it doesn't exist
-              const docDir = path.join(process.cwd(), 'generated_documents');
-              if (!fs.existsSync(docDir)) {
-                fs.mkdirSync(docDir, { recursive: true });
-              }
-
-              // Generate filename with seller name and timestamp
-              const sellerName = (data.seller.name || 'TermSheet').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30);
-              const timestamp = new Date().toISOString().split('T')[0];
-              const filename = `TermSheet_${sellerName}_${timestamp}.docx`;
-              const filepath = path.join(docDir, filename);
-
-              // Write file
-              fs.writeFileSync(filepath, buffer);
-              console.log(`Successfully generated: ${filename}`);
-              
-              return filename;
-            } catch (error) {
-              console.error('Generation failed:', error);
-              process.exit(1);
-            }
-          }
-
-          const inputData = process.argv[2];
-          generateTermSheet(inputData).then(() => {
-            process.exit(0);
-          }).catch(err => {
-            console.error(err);
-            process.exit(1);
-          });
-          EOFSCRIPT
-
-      - name: Run generation script
-        id: generate
-        run: |
-          OUTPUT=$(node generate-term-sheet.js '${{ github.event.inputs.data }}')
-          echo "filename=$OUTPUT" >> $GITHUB_OUTPUT
-          echo "Generated: $OUTPUT"
-
-      - name: Verify file exists
-        run: |
-          ls -lah generated_documents/
-          if [ ! -f generated_documents/*.docx ]; then
-            echo "ERROR: No DOCX file generated!"
-            exit 1
-          fi
+PYTHON_SCRIPT
 
       - name: Configure Git
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-      - name: Add and commit files
+      - name: Add generated documents to Git
         run: |
-          git add generated_documents/
-          git commit -m "Add generated term sheet: ${{ steps.generate.outputs.filename }}" || echo "No changes to commit"
+          if [ -d "generated_documents" ] && [ "$(ls -A generated_documents)" ]; then
+            echo "📁 Files in generated_documents:"
+            ls -lah generated_documents/
+            git add generated_documents/
+            git status
+          else
+            echo "❌ No generated documents found"
+            exit 1
+          fi
 
-      - name: Push to repository
+      - name: Commit changes
+        run: |
+          git commit -m "Generated term sheet - $(date +'%Y-%m-%d %H:%M:%S')" || echo "⚠️ No changes to commit"
+
+      - name: Push to main branch
         run: |
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Verify push success
+      - name: Verify files in repository
         run: |
-          echo "Checking if file is accessible..."
+          echo "✅ Push completed successfully"
           git fetch origin
-          git ls-tree -r origin/main | grep generated_documents/ || echo "Warning: Could not verify file in remote"
-          echo "Push completed successfully"
+          echo "📄 Files now in remote repository:"
+          git ls-tree -r origin/main -- generated_documents/ | head -20

@@ -30,7 +30,8 @@ jobs:
           pip install python-docx
 
       - name: Process term sheet data and generate documents
-        run: python << 'PYTHON_SCRIPT'
+        run: |
+          python << 'EOF'
 import os
 import json
 import glob
@@ -313,8 +314,7 @@ except Exception as e:
     import traceback
     traceback.print_exc()
     exit(1)
-
-PYTHON_SCRIPT
+          EOF
 
       - name: Configure Git
         run: |

@@ -1292,9 +1292,9 @@
         };
 
         async function commitToGitHub(data) {
-            const token = localStorage.getItem('github_token_termsheet');
+            const token = localStorage.getItem('github_token');
             if (!token) {
-                throw new Error('GitHub token not found. Please set it in browser console: localStorage.setItem("github_token_termsheet", "your_token")');
+                throw new Error('GitHub token not found. Please set it in browser console: localStorage.setItem("github_token", "your_token")');
             }
 
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -1328,7 +1328,7 @@
                 return await response.json();
             } catch (error) {
                 if (error.message.includes('401') || error.message.includes('Bad credentials')) {
-                    localStorage.removeItem('github_token_termsheet');
+                    localStorage.removeItem('github_token');
                     throw new Error('GitHub authentication failed. Please try again with a valid token.');
                 }
                 throw error;
@@ -1336,7 +1336,7 @@
         }
 
         async function waitForWorkflow(submissionTime, retries = 60, delay = 3000) {
-            const token = localStorage.getItem('github_token_termsheet');
+            const token = localStorage.getItem('github_token');
 
             console.log('Submission time:', submissionTime.toISOString());
             console.log('Looking for documents created after:', submissionTime);

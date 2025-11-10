@@ -22,10 +22,11 @@ def find_template():
     
     # Try exact names first
     possible_names = [
+        'Term Sheet - Share Sale - Binding_option1(ID 2740).docx',
         'Term Sheet - Share Sale - Binding_option[ID 2740].docx',
         'Term Sheet - Share Sale - Binding.docx',
         'Term_Sheet_Master.docx',
-        'templates/Term Sheet - Share Sale - Binding_option[ID 2740].docx',
+        'templates/Term Sheet - Share Sale - Binding_option1(ID 2740).docx',
     ]
     
     for template_name in possible_names:

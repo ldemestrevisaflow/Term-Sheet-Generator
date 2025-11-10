@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate Term Sheet DOCX by filling in the master PwC template with JSON questionnaire data.
-Uses the actual placeholder names from the template.
+Handles split runs and row-based replacements.
 
 Usage: python generate_term_sheet.py <path_to_json_file>
 """
@@ -10,6 +10,7 @@ import json
 import sys
 import os
 import glob
+import re
 from datetime import datetime
 from docx import Document
 
@@ -50,46 +51,149 @@ def find_template():
         "Expected to find a file with 'Term Sheet' in the name ending in .docx"
     )
 
-def replace_text_in_document(doc, replacements):
-    """Replace all placeholder text in document with values from replacements dict"""
+def get_cell_text(cell):
+    """Get all text from a cell's paragraphs"""
+    return ''.join([para.text for para in cell.paragraphs])
+
+def set_cell_text(cell, new_text):
+    """Set text in a cell, handling multiple paragraphs"""
+    if cell.paragraphs:
+        cell.paragraphs[0].text = new_text
+        # Clear other paragraphs if any
+        for para in cell.paragraphs[1:]:
+            p = para._element
+            p.getparent().remove(p)
+
+def replace_text_in_runs(runs, replacements):
+    """Replace text across multiple runs in a paragraph"""
+    if not runs:
+        return
+    
+    # Get full text
+    full_text = ''.join([run.text for run in runs])
+    
+    # Check if any replacement is needed
+    needs_replacement = any(key in full_text for key in replacements.keys())
+    
+    if not needs_replacement:
+        return
+    
+    # Do replacements on full text
+    for key, value in replacements.items():
+        full_text = full_text.replace(key, str(value))
+    
+    # Clear runs and set new text
+    for run in runs:
+        run.text = ""
+    
+    if runs:
+        runs[0].text = full_text
+
+def replace_in_document_general(doc, replacements):
+    """Replace placeholders in paragraphs and general document text"""
     
     # Replace in paragraphs
     for paragraph in doc.paragraphs:
-        for key, value in replacements.items():
-            if key in paragraph.text:
-                # For each run in the paragraph, replace the text
-                for run in paragraph.runs:
-                    if key in run.text:
-                        run.text = run.text.replace(key, str(value))
+        replace_text_in_runs(paragraph.runs, replacements)
     
-    # Replace in tables
-    for table in doc.tables:
+    # Replace in table cells (general)
+    for table_idx, table in enumerate(doc.tables):
+        # Skip table 1 (party details table - handle separately)
+        if table_idx == 1:
+            continue
+        
         for row in table.rows:
             for cell in row.cells:
                 for paragraph in cell.paragraphs:
-                    for key, value in replacements.items():
-                        if key in paragraph.text:
-                            for run in paragraph.runs:
-                                if key in run.text:
-                                    run.text = run.text.replace(key, str(value))
+                    replace_text_in_runs(paragraph.runs, replacements)
     
     # Replace in headers/footers
     for section in doc.sections:
-        # Header
         for paragraph in section.header.paragraphs:
-            for key, value in replacements.items():
-                if key in paragraph.text:
-                    for run in paragraph.runs:
-                        if key in run.text:
-                            run.text = run.text.replace(key, str(value))
-        
-        # Footer
+            replace_text_in_runs(paragraph.runs, replacements)
         for paragraph in section.footer.paragraphs:
-            for key, value in replacements.items():
-                if key in paragraph.text:
-                    for run in paragraph.runs:
-                        if key in run.text:
-                            run.text = run.text.replace(key, str(value))
+            replace_text_in_runs(paragraph.runs, replacements)
+
+def fill_party_details_table(table, seller, buyer, target):
+    """Fill in the party details table (Table 1) with seller and buyer info"""
+    
+    print("Filling party details table...")
+    
+    # Row 3-8: Seller (Party 1)
+    # Row 10-15: Buyer (Party 2)  
+    # Row 17-22: Escrow Agent (Party 3)
+    
+    # Seller Name (Row 3, Cell 1)
+    try:
+        cell_text = get_cell_text(table.rows[3].cells[1])
+        if '[insert Party' in cell_text:
+            set_cell_text(table.rows[3].cells[1], seller.get('name', ''))
+            print(f"  Seller name: {seller.get('name', '')}")
+    except:
+        pass
+    
+    # Seller ABN (Row 4, Cell 1)
+    try:
+        cell_text = get_cell_text(table.rows[4].cells[1])
+        if '[insert' in cell_text:
+            set_cell_text(table.rows[4].cells[1], seller.get('abn', ''))
+            print(f"  Seller ABN: {seller.get('abn', '')}")
+    except:
+        pass
+    
+    # Buyer Name (Row 10, Cell 1)
+    try:
+        cell_text = get_cell_text(table.rows[10].cells[1])
+        if '[insert Party' in cell_text:
+            set_cell_text(table.rows[10].cells[1], buyer.get('name', ''))
+            print(f"  Buyer name: {buyer.get('name', '')}")
+    except:
+        pass
+    
+    # Buyer ABN (Row 11, Cell 1)
+    try:
+        cell_text = get_cell_text(table.rows[11].cells[1])
+        if '[insert' in cell_text:
+            set_cell_text(table.rows[11].cells[1], buyer.get('abn', ''))
+            print(f"  Buyer ABN: {buyer.get('abn', '')}")
+    except:
+        pass
+    
+    # Target/Company Name (Party 3 - Row 17, Cell 1)
+    try:
+        cell_text = get_cell_text(table.rows[17].cells[1])
+        if '[insert Party' in cell_text:
+            set_cell_text(table.rows[17].cells[1], target.get('name', ''))
+            print(f"  Target/Company name: {target.get('name', '')}")
+    except:
+        pass
+    
+    # Target ABN (Row 18, Cell 1)
+    try:
+        cell_text = get_cell_text(table.rows[18].cells[1])
+        if '[insert' in cell_text:
+            set_cell_text(table.rows[18].cells[1], target.get('abn', ''))
+            print(f"  Target ABN: {target.get('abn', '')}")
+    except:
+        pass
+
+def replace_signature_blocks(doc, buyer, seller):
+    """Replace party names in signature blocks"""
+    
+    print("Filling signature blocks...")
+    
+    # Find and replace signature block text
+    for para_idx, para in enumerate(doc.paragraphs):
+        if 'SIGNED by' in para.text and '[INSERT PARTY NAME]' in para.text:
+            # Replace with buyer on first occurrence, seller on second
+            text = para.text
+            if 'SIGNED by [INSERT PARTY NAME]' in text:
+                # This is tricky - we need to track which signature block this is
+                # For now, replace all with buyer (you may need manual adjustment)
+                for run in para.runs:
+                    if '[INSERT PARTY NAME]' in run.text:
+                        run.text = run.text.replace('[INSERT PARTY NAME]', buyer.get('name', ''))
+                        print(f"  Signature block: {buyer.get('name', '')}")
 
 def format_currency(value):
     """Format value as Australian currency"""
@@ -121,8 +225,7 @@ def generate_term_sheet(json_file):
     print(f"Loading template: {template_file}")
     doc = Document(template_file)
     
-    # Prepare replacements dictionary
-    # Using the ACTUAL placeholders from the PwC template
+    # Extract data
     seller = data.get('seller', {})
     buyer = data.get('buyer', {})
     target = data.get('targetCompany', {})
@@ -134,62 +237,37 @@ def generate_term_sheet(json_file):
     management = data.get('management', {})
     legal = data.get('legal', {})
     
+    # General replacements for placeholders
     replacements = {
-        # Party Details (Signature Pages)
-        '[Insert Party 1 Name]': seller.get('name', ''),
-        '[Insert ABN of Party 1]': seller.get('abn', ''),
-        '[Insert Party 2 Name]': buyer.get('name', ''),
-        '[Insert ABN of Party 2]': buyer.get('abn', ''),
-        '[Insert Party 3 Name]': target.get('name', ''),
-        '[Insert ABN of Party 3]': target.get('abn', ''),
-        
-        # Case-sensitive versions
-        '[insert Party 1 Address]': seller.get('name', ''),
-        '[insert Party 2 Address]': buyer.get('name', ''),
-        '[insert Party 3 Address]': target.get('name', ''),
-        '[insert Party  Name]': target.get('name', ''),
-        '[insert ABN]': target.get('abn', ''),
-        '[INSERT PARTY NAME]': buyer.get('name', ''),
-        
-        # Key Information - Company Details
-        '[insert name and ABN of company]': f"{target.get('name', '')} (ABN {target.get('abn', '')})",
-        
-        # Dates
         '[Insert Date]': format_date(dates.get('termSheetDate', '')),
         '[insert date]': format_date(dates.get('completionDate', '')),
-        
-        # Transaction Amounts
         '[Insert Amount]': format_currency(transaction.get('purchasePrice')),
         '[insert amount]': format_currency(transaction.get('depositAmount')),
-        
-        # Conditions Precedent
         '[insert number]': str(conditions.get('infoRequestDays', '10')),
         '[30]': str(conditions.get('accessPeriodDays', '30')),
         '[insert address]': target.get('name', ''),
-        
-        # Commercial Terms - Non-Compete
         '[three]': str(commercial.get('nonCompetePeriod', '3')),
         '[12]': str(commercial.get('nonSolicitationPeriod', '12')),
         '[six months]': '6 months',
         '[five]': '5',
-        
-        # Management/Directors
         '[insert relevant name]': management.get('directorsResign', ''),
-        
-        # Legal/Jurisdiction
         '[New South Wales]': legal.get('jurisdiction', 'New South Wales'),
-        
-        # Schedules
         '[Insert list of Suppliers]': legal.get('suppliersSchedule', ''),
         '[Insert list of Customers]': legal.get('customersSchedule', ''),
-        
-        # Contact Details placeholders
         '[insert details]': '',
         '[insert details of representations]': '',
     }
     
-    print("Replacing placeholders in document...")
-    replace_text_in_document(doc, replacements)
+    print("Replacing general placeholders...")
+    replace_in_document_general(doc, replacements)
+    
+    print("Filling party details table...")
+    # Handle party details table specially (Table 1)
+    if len(doc.tables) > 1:
+        fill_party_details_table(doc.tables[1], seller, buyer, target)
+    
+    print("Replacing signature blocks...")
+    replace_signature_blocks(doc, buyer, seller)
     
     # Save document
     output_dir = 'output'

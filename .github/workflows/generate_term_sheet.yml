@@ -1,8 +1,10 @@
 name: Generate Term Sheet
 
 on:
-  repository_dispatch:
-    types: [generate_term_sheet]
+  push:
+    paths:
+      - 'term_sheet_data/ts_*.json'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,336 +17,98 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
           pip install python-docx
 
-      - name: Process term sheet data and generate documents
-        run: python << 'PYTHON_SCRIPT'
-import os
-import json
-import glob
-from datetime import datetime
-from pathlib import Path
-from docx import Document
-from docx.shared import Pt, RGBColor, Inches
-from docx.enum.text import WD_ALIGN_PARAGRAPH
+      - name: Find latest Term Sheet data file
+        id: find-file
+        run: |
+          # Find the most recent JSON file by sorting filenames (which contain ISO timestamps)
+          LATEST_FILE=$(ls term_sheet_data/ts_*.json 2>/dev/null | sort -r | head -n 1)
+          
+          if [ -z "$LATEST_FILE" ]; then
+            echo "No Term Sheet data files found!"
+            exit 1
+          fi
+          
+          echo "Latest file: $LATEST_FILE"
+          echo "TS_FILE=$LATEST_FILE" >> $GITHUB_OUTPUT
 
-def sanitize_filename(filename):
-    """Remove or replace problematic characters in filenames"""
-    # Replace & with and, remove other special chars
-    filename = filename.replace('&', 'and')
-    filename = filename.replace('/', '_')
-    filename = filename.replace('\\', '_')
-    filename = filename.replace(':', '_')
-    filename = filename.replace('*', '_')
-    filename = filename.replace('?', '_')
-    filename = filename.replace('"', '_')
-    filename = filename.replace('<', '_')
-    filename = filename.replace('>', '_')
-    filename = filename.replace('|', '_')
-    return filename
+      - name: Generate Term Sheet document
+        run: |
+          echo "Loading Term Sheet data..."
+          python generate_term_sheet.py ${{ steps.find-file.outputs.TS_FILE }}
+          
+          # Verify the file was created
+          if [ ! -f "output/generated_TermSheet.docx" ]; then
+            echo "ERROR: generated_TermSheet.docx was not created!"
+            exit 1
+          fi
+          
+          echo "File created successfully!"
+          ls -lh output/generated_TermSheet.docx
 
-def add_heading(doc, text, level=1):
-    """Add a heading to the document"""
-    heading = doc.add_heading(text, level=level)
-    heading.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    return heading
+      - name: Get timestamp
+        id: timestamp
+        run: echo "TIMESTAMP=$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
 
-def add_section_table(doc, data_dict):
-    """Add a formatted table section"""
-    table = doc.add_table(rows=len(data_dict) + 1)
-    table.style = 'Light Grid Accent 1'
-    
-    # Header
-    header_cells = table.rows[0].cells
-    header_cells[0].text = 'Field'
-    header_cells[1].text = 'Value'
-    for cell in header_cells:
-        for paragraph in cell.paragraphs:
-            for run in paragraph.runs:
-                run.bold = True
-    
-    # Data rows
-    for i, (key, value) in enumerate(data_dict.items(), 1):
-        row_cells = table.rows[i].cells
-        row_cells[0].text = str(key)
-        row_cells[1].text = str(value) if value else '—'
-    
-    return table
+      - name: Prepare generated document
+        run: |
+          # Create generated_documents directory if it doesn't exist
+          mkdir -p generated_documents
+          
+          # Copy the generated document with timestamp
+          cp output/generated_TermSheet.docx generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx
+          
+          # Verify the copy
+          if [ ! -f "generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx" ]; then
+            echo "ERROR: Failed to copy file to generated_documents!"
+            exit 1
+          fi
+          
+          echo "File copied successfully to: generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx"
+          ls -lh generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx
 
-def format_currency(value):
-    """Format value as Australian currency"""
-    try:
-        num = float(value) if value else 0
-        return f"A${num:,.2f}"
-    except:
-        return str(value) if value else '—'
-
-def generate_term_sheet(json_data):
-    """Generate a professional term sheet DOCX from JSON data"""
-    
-    data = json.loads(json_data)
-    doc = Document()
-    
-    # Set default font
-    style = doc.styles['Normal']
-    font = style.font
-    font.name = 'Calibri'
-    font.size = Pt(11)
-    
-    # Title
-    title = doc.add_paragraph()
-    title_run = title.add_run('TERM SHEET')
-    title_run.font.size = Pt(24)
-    title_run.bold = True
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    subtitle = doc.add_paragraph()
-    subtitle_run = subtitle.add_run('SHARE SALE AND PURCHASE')
-    subtitle_run.font.size = Pt(14)
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    doc.add_paragraph()  # Spacing
-    
-    # 1. PARTIES
-    add_heading(doc, '1. PARTIES', level=1)
-    parties_data = {
-        'Seller': data.get('seller', {}).get('name', ''),
-        'Seller ABN': data.get('seller', {}).get('abn', ''),
-        'Buyer': data.get('buyer', {}).get('name', ''),
-        'Buyer ABN': data.get('buyer', {}).get('abn', ''),
-        'Target Company': data.get('targetCompany', {}).get('name', ''),
-        'Target ABN': data.get('targetCompany', {}).get('abn', '')
-    }
-    add_section_table(doc, parties_data)
-    doc.add_paragraph()
-    
-    # 2. TRANSACTION DETAILS
-    add_heading(doc, '2. TRANSACTION DETAILS', level=1)
-    transaction_data = {
-        'Purchase Price': format_currency(data.get('transaction', {}).get('purchasePrice')),
-        'Deposit': format_currency(data.get('transaction', {}).get('depositAmount')),
-        'Base Net Assets': format_currency(data.get('transaction', {}).get('baseNetAssets'))
-    }
-    add_section_table(doc, transaction_data)
-    doc.add_paragraph()
-    
-    # 3. KEY DATES
-    add_heading(doc, '3. KEY DATES', level=1)
-    dates_data = {
-        'Term Sheet Date': data.get('dates', {}).get('termSheetDate', ''),
-        'Due Diligence Completion': data.get('dates', {}).get('dueDiligenceDate', ''),
-        'Long Form Agreement': data.get('dates', {}).get('longFormDate', ''),
-        'Condition Satisfaction': data.get('dates', {}).get('conditionSatisfactionDate', ''),
-        'Completion Date': data.get('dates', {}).get('completionDate', '')
-    }
-    add_section_table(doc, dates_data)
-    doc.add_paragraph()
-    
-    # 4. CONDITIONS PRECEDENT
-    add_heading(doc, '4. CONDITIONS PRECEDENT', level=1)
-    conditions = data.get('conditions', {})
-    conditions_data = {
-        'Due Diligence Type': conditions.get('dueDiligenceType', 'Unstructured'),
-        'Information Request Timeline': f"{conditions.get('infoRequestDays', 10)} days",
-        'Access Period': f"{conditions.get('accessPeriodDays', 30)} days"
-    }
-    add_section_table(doc, conditions_data)
-    
-    if conditions.get('additionalConditions'):
-        doc.add_paragraph('Additional Conditions:', style='Heading 2')
-        doc.add_paragraph(conditions['additionalConditions'])
-    doc.add_paragraph()
-    
-    # 5. WARRANTIES & INDEMNITIES
-    add_heading(doc, '5. WARRANTIES & INDEMNITIES', level=1)
-    warranties = data.get('warranties', {})
-    warranties_data = {
-        'Warranty Structure': warranties.get('structure', 'Joint & Several'),
-        'Tax Indemnity': 'Included' if warranties.get('taxIndemnity') else 'Not Included'
-    }
-    add_section_table(doc, warranties_data)
-    
-    if warranties.get('limitations'):
-        doc.add_paragraph('Warranty Limitations:', style='Heading 2')
-        doc.add_paragraph(warranties['limitations'])
-    doc.add_paragraph()
-    
-    # 6. COMMERCIAL TERMS
-    add_heading(doc, '6. COMMERCIAL TERMS', level=1)
-    commercial = data.get('commercial', {})
-    commercial_data = {
-        'Non-Compete Period': f"{commercial.get('nonCompetePeriod', 3)} years",
-        'Non-Solicitation Period': f"{commercial.get('nonSolicitationPeriod', 12)} months",
-        'Exclusivity Required': 'Yes' if commercial.get('exclusivityRequired') == 'yes' else 'No'
-    }
-    add_section_table(doc, commercial_data)
-    doc.add_paragraph()
-    
-    # 7. MANAGEMENT & KEY PERSONNEL
-    add_heading(doc, '7. MANAGEMENT & KEY PERSONNEL', level=1)
-    management = data.get('management', {})
-    
-    if management.get('directorsResign'):
-        doc.add_paragraph('Directors to Resign:', style='Heading 2')
-        doc.add_paragraph(management['directorsResign'])
-    
-    if management.get('directorsNewAgreements'):
-        doc.add_paragraph('Directors Entering New Agreements:', style='Heading 2')
-        doc.add_paragraph(management['directorsNewAgreements'])
-    
-    if management.get('retentionPersonnel'):
-        doc.add_paragraph('Key Personnel Arrangements:', style='Heading 2')
-        doc.add_paragraph(management['retentionPersonnel'])
-    
-    doc.add_paragraph()
-    
-    # 8. LEGAL & JURISDICTION
-    add_heading(doc, '8. LEGAL & JURISDICTION', level=1)
-    legal = data.get('legal', {})
-    legal_data = {
-        'Jurisdiction': legal.get('jurisdiction', 'New South Wales'),
-        'Jurisdiction Type': 'Exclusive' if legal.get('jurisdictionType') == 'exclusive' else 'Non-Exclusive',
-        'Term Sheet Type': 'Binding' if legal.get('termSheetType') == 'binding' else 'Non-Binding'
-    }
-    add_section_table(doc, legal_data)
-    
-    if legal.get('suppliersSchedule'):
-        doc.add_paragraph('Key Suppliers:', style='Heading 2')
-        doc.add_paragraph(legal['suppliersSchedule'])
-    
-    if legal.get('customersSchedule'):
-        doc.add_paragraph('Key Customers:', style='Heading 2')
-        doc.add_paragraph(legal['customersSchedule'])
-    
-    doc.add_paragraph()
-    
-    # SIGNATURE PAGE
-    doc.add_page_break()
-    add_heading(doc, 'SIGNATURE PAGE', level=1)
-    doc.add_paragraph('Signed by the parties as of the date first written above.')
-    doc.add_paragraph()
-    
-    doc.add_paragraph('FOR AND ON BEHALF OF THE BUYER:', style='Heading 2')
-    doc.add_paragraph()
-    doc.add_paragraph('___________________________')
-    doc.add_paragraph('Signature')
-    doc.add_paragraph()
-    doc.add_paragraph('___________________________')
-    doc.add_paragraph('Name and Title')
-    doc.add_paragraph()
-    doc.add_paragraph()
-    
-    doc.add_paragraph('FOR AND ON BEHALF OF THE SELLER:', style='Heading 2')
-    doc.add_paragraph()
-    doc.add_paragraph('___________________________')
-    doc.add_paragraph('Signature')
-    doc.add_paragraph()
-    doc.add_paragraph('___________________________')
-    doc.add_paragraph('Name and Title')
-    
-    return doc
-
-# Main execution
-print("📄 Processing term sheet data...")
-
-# Find the most recent JSON file
-json_files = glob.glob('term_sheet_data/*.json')
-if not json_files:
-    print("❌ No JSON data files found")
-    exit(1)
-
-# Sort by modification time, get the newest
-latest_json = max(json_files, key=os.path.getmtime)
-print(f"📄 Processing: {latest_json}")
-
-# Read and parse JSON
-try:
-    with open(latest_json, 'r') as f:
-        json_data = f.read()
-    print("✅ JSON loaded successfully")
-except Exception as e:
-    print(f"❌ Failed to read JSON: {e}")
-    exit(1)
-
-# Generate document
-try:
-    doc = generate_term_sheet(json_data)
-    
-    # Create output directory
-    output_dir = 'generated_documents'
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Parse seller name for filename
-    data = json.loads(json_data)
-    seller_name = data.get('seller', {}).get('name', 'TermSheet')
-    
-    # Sanitize the filename
-    safe_name = sanitize_filename(seller_name)
-    
-    # Add timestamp to ensure uniqueness
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'TermSheet_{safe_name}_{timestamp}.docx'
-    filepath = os.path.join(output_dir, filename)
-    
-    # Save document
-    doc.save(filepath)
-    
-    # Get file size for verification
-    file_size = os.path.getsize(filepath)
-    print(f"✅ Document generated successfully!")
-    print(f"   File: {filename}")
-    print(f"   Size: {file_size} bytes")
-    print(f"   Path: {filepath}")
-    
-except Exception as e:
-    print(f"❌ Failed to generate document: {e}")
-    import traceback
-    traceback.print_exc()
-    exit(1)
-
-PYTHON_SCRIPT
-
-      - name: Configure Git
+      - name: Commit generated Term Sheet to repository
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-
-      - name: Add generated documents to Git
-        run: |
-          if [ -d "generated_documents" ] && [ "$(ls -A generated_documents)" ]; then
-            echo "📁 Files in generated_documents:"
-            ls -lah generated_documents/
-            git add generated_documents/
-            git status
+          
+          # Add the file
+          git add generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx
+          
+          # Check if there are changes to commit
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
           else
-            echo "❌ No generated documents found"
-            exit 1
+            # Get the company name from the JSON file for the commit message
+            SELLER_NAME=$(python -c "import json; data=json.load(open('${{ steps.find-file.outputs.TS_FILE }}')); print(data['seller']['name'])")
+            
+            git commit -m "Generated Term Sheet at ${{ steps.timestamp.outputs.TIMESTAMP }} for ${SELLER_NAME}"
+            git push
+            
+            echo "Successfully committed and pushed!"
           fi
 
-      - name: Commit changes
-        run: |
-          git commit -m "Generated term sheet - $(date +'%Y-%m-%d %H:%M:%S')" || echo "⚠️ No changes to commit"
+      - name: Upload Term Sheet as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-term-sheet
+          path: generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx
 
-      - name: Push to main branch
+      - name: Create download info
         run: |
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify files in repository
-        run: |
-          echo "✅ Push completed successfully"
-          git fetch origin
-          echo "📄 Files now in remote repository:"
-          git ls-tree -r origin/main -- generated_documents/ | head -20
+          echo "================================"
+          echo "TERM SHEET GENERATED SUCCESSFULLY!"
+          echo "================================"
+          echo "File: generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx"
+          echo "Timestamp: ${{ steps.timestamp.outputs.TIMESTAMP }}"
+          echo "================================"

@@ -139,6 +139,78 @@ def replace_in_document_general(doc, replacements):
         for paragraph in section.footer.paragraphs:
             replace_text_in_runs(paragraph.runs, replacements)
 
+def fix_first_page_parties(doc, seller, buyer):
+    """Fix the first page table with party names"""
+    print("Fixing first page party details...")
+    
+    if len(doc.tables) > 0:
+        table = doc.tables[0]
+        
+        # Find and replace in Table 0 (the cover page table)
+        for row_idx, row in enumerate(table.rows):
+            for cell in row.cells:
+                cell_text = get_cell_text(cell)
+                
+                # Replace party 1 (Seller)
+                if '[Insert Party 1 Name]' in cell_text:
+                    set_cell_text(cell, f"{seller.get('name', '')} ABN ({seller.get('abn', '')}) (Seller)")
+                    print(f"  Updated Seller in table: {seller.get('name', '')}")
+                
+                # Replace party 2 (Buyer)
+                if '[Insert Party 2 Name]' in cell_text:
+                    set_cell_text(cell, f"{buyer.get('name', '')} ABN ({buyer.get('abn', '')}) (Buyer)")
+                    print(f"  Updated Buyer in table: {buyer.get('name', '')}")
+
+def fix_binding_text(doc, is_binding):
+    """Fix the [non-]Binding text based on binding/non-binding selection"""
+    print(f"Fixing binding/non-binding text (is_binding={is_binding})...")
+    
+    for para in doc.paragraphs:
+        # Fix Table of Contents or cover page
+        if '[non-]' in para.text or 'Non-]' in para.text:
+            for run in para.runs:
+                if '[non-]' in run.text:
+                    if is_binding:
+                        run.text = run.text.replace('[non-]', '')
+                    else:
+                        run.text = run.text.replace('[non-]', 'non-')
+                    print(f"  Fixed: {run.text}")
+                elif 'Non-]' in run.text:
+                    if is_binding:
+                        run.text = run.text.replace('Non-]', '')
+                    else:
+                        run.text = run.text.replace('Non-]', 'Non-')
+
+def fix_recital_a(doc, target):
+    """Fix Recital A with target company name"""
+    print("Fixing Recital A with target company name...")
+    
+    for para in doc.paragraphs:
+        if '[insert name and ABN of company]' in para.text:
+            for run in para.runs:
+                if '[insert name and ABN of company]' in run.text:
+                    replacement = f"{target.get('name', '')} (ABN {target.get('abn', '')})"
+                    run.text = run.text.replace('[insert name and ABN of company]', replacement)
+                    print(f"  Updated Recital A: {replacement}")
+
+def fix_signature_blocks(doc, buyer, seller):
+    """Fix signature blocks with buyer and seller names"""
+    print("Fixing signature blocks...")
+    
+    signature_block_count = 0
+    for para in doc.paragraphs:
+        if 'SIGNED by' in para.text and '[INSERT PARTY NAME]' in para.text:
+            signature_block_count += 1
+            for run in para.runs:
+                if '[INSERT PARTY NAME]' in run.text:
+                    # First signature block = Buyer, Second = Seller
+                    if signature_block_count == 1:
+                        run.text = run.text.replace('[INSERT PARTY NAME]', buyer.get('name', ''))
+                        print(f"  Buyer signature block: {buyer.get('name', '')}")
+                    elif signature_block_count == 2:
+                        run.text = run.text.replace('[INSERT PARTY NAME]', seller.get('name', ''))
+                        print(f"  Seller signature block: {seller.get('name', '')}")
+
 def fill_party_details_table(table, seller, buyer, target):
     """Fill in the party details table (Table 1) with seller and buyer info"""
     
@@ -286,13 +358,22 @@ def generate_term_sheet(json_file):
     print("Replacing general placeholders...")
     replace_in_document_general(doc, replacements)
     
+    print("Applying specific fixes...")
+    # Get binding status
+    is_binding = legal.get('termSheetType', 'binding') == 'binding'
+    
+    # Apply all fixes
+    fix_first_page_parties(doc, seller, buyer)
+    fix_binding_text(doc, is_binding)
+    fix_recital_a(doc, target)
+    
     print("Filling party details table...")
     # Handle party details table specially (Table 1)
     if len(doc.tables) > 1:
         fill_party_details_table(doc.tables[1], seller, buyer, target)
     
-    print("Replacing signature blocks...")
-    replace_signature_blocks(doc, buyer, seller)
+    print("Fixing signature blocks...")
+    fix_signature_blocks(doc, buyer, seller)
     
     # Save document
     output_dir = 'output'

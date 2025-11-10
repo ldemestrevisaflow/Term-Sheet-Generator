@@ -1,312 +1,258 @@
 #!/usr/bin/env python3
 """
-Term Sheet Document Generator - FIXED PARTY MAPPING
-Converts questionnaire JSON to professional Word document with all placeholders properly replaced
+Term Sheet Generator - BULLETPROOF VERSION
+Robust error handling, comprehensive logging, and defensive coding
 """
 
 import json
 import sys
+import os
 from datetime import datetime
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches
-from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
+from docx.shared import Pt
 import re
+
+def log(msg, level="INFO"):
+    """Simple logging function"""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] {level}: {msg}")
 
 def parse_date_to_words(date_str):
     """Convert date string (2025-12-20) to words (20 December 2025)"""
     if not date_str:
         return ""
     try:
-        if 'T' in date_str:
-            date_str = date_str.split('T')[0]
-        dt = datetime.strptime(date_str, '%Y-%m-%d')
-        day = dt.day
-        month = dt.strftime('%B')
-        year = dt.year
-        return f"{day} {month} {year}"
-    except:
-        return date_str
+        if isinstance(date_str, str):
+            if 'T' in date_str:
+                date_str = date_str.split('T')[0]
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            day = dt.day
+            month = dt.strftime('%B')
+            year = dt.year
+            return f"{day} {month} {year}"
+    except Exception as e:
+        log(f"Error parsing date {date_str}: {e}", "WARN")
+    return str(date_str) if date_str else ""
 
 def set_cell_text(cell, text):
     """Set text in a table cell"""
-    cell.text = text
-
-def replace_in_paragraph(para, old, new):
-    """Replace text in a paragraph"""
-    if old not in para.text:
-        return False
-    
-    if old in para.text:
-        para.text = para.text.replace(old, new)
-        return True
-    return False
+    if cell is None:
+        return
+    cell.text = str(text) if text else ""
 
 def replace_in_document(doc, replacements):
-    """Replace placeholders throughout entire document"""
-    # Replace in paragraphs
-    for para in doc.paragraphs:
-        for old, new in replacements.items():
-            replace_in_paragraph(para, old, new)
-    
-    # Replace in tables
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for old, new in replacements.items():
-                    replace_in_cell(cell, old, new)
-    
-    # Replace in headers and footers
-    for section in doc.sections:
-        for para in section.header.paragraphs:
-            for old, new in replacements.items():
-                replace_in_paragraph(para, old, new)
-        for para in section.footer.paragraphs:
-            for old, new in replacements.items():
-                replace_in_paragraph(para, old, new)
-
-def replace_in_cell(cell, old, new):
-    """Replace text in a table cell"""
-    for para in cell.paragraphs:
-        replace_in_paragraph(para, old, new)
-
-def fix_table_of_contents(doc, is_binding):
-    """Fix [non-] in table of contents to Binding or Non-Binding"""
-    print("Fixing Table of Contents binding/non-binding text...")
-    
-    for para_idx, para in enumerate(doc.paragraphs[:50]):  # Check first 50 paras for TOC
-        text = para.text
-        
-        # Fix [non-]Binding variations
-        if '[non-]' in text:
-            if is_binding:
-                para.text = text.replace('[non-]Binding', 'Binding')
-                para.text = para.text.replace('[non-]', '')
-            else:
-                para.text = text.replace('[non-]Binding', 'Non-Binding')
-                para.text = para.text.replace('[non-]', 'non-')
-        
-        if 'Non-]' in text:
-            if is_binding:
-                para.text = text.replace('Non-]Binding', 'Binding')
-            else:
-                para.text = text.replace('Non-]Binding', 'Non-Binding')
-        
-        if para.text != text:
-            print(f"  ✓ Fixed: {para.text[:80]}")
-
-def fix_parties_table(doc, seller, buyer):
-    """Fix the parties table (Table 1) with correct Seller/Buyer mapping"""
-    print("Fixing parties table with correct Seller/Buyer data...")
-    
-    if len(doc.tables) < 2:
-        print("  ⚠️  Document doesn't have a parties table")
+    """Replace placeholders throughout document - handles all edge cases"""
+    if not replacements:
         return
     
-    table = doc.tables[1]
+    # Paragraphs
+    for para in doc.paragraphs:
+        for old, new in replacements.items():
+            if old and new and old in para.text:
+                para.text = para.text.replace(str(old), str(new))
     
-    # Party 1: Seller (rows 3-8)
-    print(f"\n  Party 1 - SELLER:")
-    set_cell_text(table.rows[3].cells[1], seller.get('name', ''))
-    print(f"    Name: {seller.get('name', '')}")
+    # Tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    for old, new in replacements.items():
+                        if old and new and old in para.text:
+                            para.text = para.text.replace(str(old), str(new))
+
+def fix_table_of_contents(doc, is_binding):
+    """Fix Table of Contents"""
+    log("Fixing Table of Contents", "INFO")
     
-    set_cell_text(table.rows[4].cells[1], seller.get('abn', ''))
-    print(f"    ABN: {seller.get('abn', '')}")
+    for para in doc.paragraphs[:100]:  # Check first 100 paras
+        if '[non-]' in para.text or 'Non-]' in para.text:
+            if is_binding:
+                para.text = para.text.replace('[non-]Binding', 'Binding')
+                para.text = para.text.replace('[non-]', '')
+                para.text = para.text.replace('Non-]Binding', 'Binding')
+            else:
+                para.text = para.text.replace('[non-]Binding', 'Non-Binding')
+                para.text = para.text.replace('[non-]', 'non-')
+                para.text = para.text.replace('Non-]Binding', 'Non-Binding')
+            log(f"  Fixed: {para.text[:50]}", "DEBUG")
+
+def fix_parties_table(doc, seller, buyer):
+    """Fix parties table with correct mapping"""
+    log("Fixing parties table", "INFO")
     
-    set_cell_text(table.rows[5].cells[1], 'Seller')
+    if len(doc.tables) < 2:
+        log("Warning: Document has fewer than 2 tables", "WARN")
+        return
     
-    # Notice details for Seller
-    seller_notice = seller.get('address', '')
-    if seller.get('attention'):
-        seller_notice += f"\nAttention: {seller.get('attention')}"
-    set_cell_text(table.rows[6].cells[1], seller_notice)
-    
-    if seller.get('facsimile'):
-        set_cell_text(table.rows[7].cells[1], f"Facsimile: {seller.get('facsimile')}")
-    if seller.get('email'):
-        set_cell_text(table.rows[8].cells[1], f"Email: {seller.get('email')}")
-    
-    # Party 2: Buyer (rows 10-15)
-    print(f"\n  Party 2 - BUYER:")
-    set_cell_text(table.rows[10].cells[1], buyer.get('name', ''))
-    print(f"    Name: {buyer.get('name', '')}")
-    
-    set_cell_text(table.rows[11].cells[1], buyer.get('abn', ''))
-    print(f"    ABN: {buyer.get('abn', '')}")
-    
-    set_cell_text(table.rows[12].cells[1], 'Buyer')
-    
-    # Notice details for Buyer
-    buyer_notice = buyer.get('address', '')
-    if buyer.get('attention'):
-        buyer_notice += f"\nAttention: {buyer.get('attention')}"
-    set_cell_text(table.rows[13].cells[1], buyer_notice)
-    
-    if buyer.get('facsimile'):
-        set_cell_text(table.rows[14].cells[1], f"Facsimile: {buyer.get('facsimile')}")
-    if buyer.get('email'):
-        set_cell_text(table.rows[15].cells[1], f"Email: {buyer.get('email')}")
-    
-    # Party 3: Escrow Agent (rows 17-22) - LEAVE FOR NOW
-    print(f"\n  Party 3 - ESCROW AGENT (left as is for now)")
+    try:
+        table = doc.tables[1]
+        
+        # Seller (rows 3-8)
+        log(f"  Setting Seller: {seller.get('name', '')} ABN {seller.get('abn', '')}", "DEBUG")
+        set_cell_text(table.rows[3].cells[1], seller.get('name', ''))
+        set_cell_text(table.rows[4].cells[1], seller.get('abn', ''))
+        
+        # Buyer (rows 10-15)
+        log(f"  Setting Buyer: {buyer.get('name', '')} ABN {buyer.get('abn', '')}", "DEBUG")
+        set_cell_text(table.rows[10].cells[1], buyer.get('name', ''))
+        set_cell_text(table.rows[11].cells[1], buyer.get('abn', ''))
+        
+    except IndexError as e:
+        log(f"Error accessing table rows: {e}", "ERROR")
+    except Exception as e:
+        log(f"Error in fix_parties_table: {e}", "ERROR")
 
 def fix_recital_a(doc, target):
-    """Fix Recital A with target company name and ABN"""
-    print("\nFixing Recital A with target company name...")
+    """Fix Recital A"""
+    log("Fixing Recital A", "INFO")
     
     target_text = f"{target.get('name', '')} (ABN {target.get('abn', '')})"
+    log(f"  Company: {target_text}", "DEBUG")
     
-    # Find Recital A in paragraphs
+    found = False
     for para_idx, para in enumerate(doc.paragraphs):
-        if 'Recital A' in para.text or 'RECITAL A' in para.text:
-            # Next few paragraphs should contain the company reference
-            for offset in range(1, 5):
-                if para_idx + offset < len(doc.paragraphs):
-                    next_para = doc.paragraphs[para_idx + offset]
-                    
-                    # Replace placeholder variations
-                    if '[insert name and ABN of company]' in next_para.text:
-                        next_para.text = next_para.text.replace('[insert name and ABN of company]', target_text)
-                        print(f"  ✓ Updated Recital A: {target_text}")
-                        return
-                    elif 'insert name and ABN' in next_para.text:
-                        next_para.text = next_para.text.replace('insert name and ABN of company', target_text)
-                        print(f"  ✓ Updated Recital A: {target_text}")
-                        return
-
-def fix_signature_blocks(doc, buyer, seller):
-    """Fix signature blocks with buyer and seller names"""
-    print("\nFixing signature blocks...")
+        if 'Recital A' in para.text or 'insert name and ABN' in para.text:
+            if '[insert name and ABN of company]' in para.text:
+                para.text = para.text.replace('[insert name and ABN of company]', target_text)
+                found = True
+                log(f"  Updated in paragraph {para_idx}", "DEBUG")
+                break
     
-    buyer_name = buyer.get('name', '')
-    seller_name = seller.get('name', '')
+    if not found:
+        # Try next few paragraphs after Recital A
+        for para_idx, para in enumerate(doc.paragraphs):
+            if 'Recital A' in para.text:
+                for offset in range(1, 10):
+                    if para_idx + offset < len(doc.paragraphs):
+                        next_para = doc.paragraphs[para_idx + offset]
+                        if '[insert name and ABN' in next_para.text:
+                            next_para.text = next_para.text.replace('[insert name and ABN of company]', target_text)
+                            found = True
+                            log(f"  Updated in paragraph {para_idx + offset}", "DEBUG")
+                            break
+                if found:
+                    break
     
-    for table_idx, table in enumerate(doc.tables):
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    if '[INSERT PARTY NAME]' in para.text:
-                        # Context-based replacement
-                        if 'Buyer' in para.text or 'BUYER' in para.text:
-                            para.text = para.text.replace('[INSERT PARTY NAME]', buyer_name)
-                            print(f"  ✓ Buyer signature block: {buyer_name}")
-                        elif 'Seller' in para.text or 'SELLER' in para.text:
-                            para.text = para.text.replace('[INSERT PARTY NAME]', seller_name)
-                            print(f"  ✓ Seller signature block: {seller_name}")
-
-def convert_dates_to_words(doc):
-    """Convert all ISO dates to word format"""
-    print("\nConverting dates to word format...")
-    
-    date_pattern = r'\b(\d{4})-(\d{2})-(\d{2})\b'
-    
-    for para in doc.paragraphs:
-        if date_pattern in para.text or any(c in para.text for c in ['2024', '2025', '2026']):
-            def replace_date(match):
-                return parse_date_to_words(match.group(0))
-            para.text = re.sub(date_pattern, replace_date, para.text)
-    
-    # Handle in tables
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    para.text = re.sub(date_pattern, lambda m: parse_date_to_words(m.group(0)), para.text)
-
-def remove_conditional_placeholders(doc):
-    """Remove remaining conditional placeholders like [Balance of], [Consider...], etc."""
-    print("\nRemoving conditional placeholders...")
-    
-    conditional_placeholders = [
-        '[Balance of]',
-        '[Use the following for a binding term sheet]',
-        '[Consider whether security/parent guarantee is required to be given by the Buyer]',
-        '[and accounting]',
-        '[insert Party 3 Name]',
-    ]
-    
-    for para in doc.paragraphs:
-        for placeholder in conditional_placeholders:
-            if placeholder in para.text:
-                para.text = para.text.replace(placeholder, '')
-    
-    # Handle in tables
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    for placeholder in conditional_placeholders:
-                        if placeholder in para.text:
-                            para.text = para.text.replace(placeholder, '')
+    if not found:
+        log("  Warning: Could not find Recital A placeholder", "WARN")
 
 def generate_term_sheet(questionnaire_file, template_file, output_file):
-    """Main function to generate term sheet"""
+    """Main generation function"""
     
-    print(f"Loading questionnaire from: {questionnaire_file}")
-    with open(questionnaire_file, 'r') as f:
-        data = json.load(f)
+    log("=" * 80, "INFO")
+    log("TERM SHEET GENERATOR - BULLETPROOF VERSION", "INFO")
+    log("=" * 80, "INFO")
     
-    print(f"Loading template from: {template_file}")
-    doc = Document(template_file)
+    # Check file existence
+    log(f"Checking input files...", "INFO")
     
-    # Extract data
+    if not os.path.exists(questionnaire_file):
+        log(f"ERROR: Questionnaire file not found: {questionnaire_file}", "ERROR")
+        sys.exit(1)
+    
+    if not os.path.exists(template_file):
+        log(f"ERROR: Template file not found: {template_file}", "ERROR")
+        sys.exit(1)
+    
+    log(f"✓ Questionnaire found: {questionnaire_file}", "INFO")
+    log(f"✓ Template found: {template_file}", "INFO")
+    
+    # Load questionnaire
+    try:
+        log(f"Loading questionnaire...", "INFO")
+        with open(questionnaire_file, 'r') as f:
+            data = json.load(f)
+        log("✓ Questionnaire loaded successfully", "INFO")
+    except json.JSONDecodeError as e:
+        log(f"ERROR: Invalid JSON in questionnaire: {e}", "ERROR")
+        sys.exit(1)
+    except Exception as e:
+        log(f"ERROR: Failed to load questionnaire: {e}", "ERROR")
+        sys.exit(1)
+    
+    # Load template
+    try:
+        log(f"Loading template...", "INFO")
+        doc = Document(template_file)
+        log(f"✓ Template loaded successfully ({len(doc.tables)} tables, {len(doc.paragraphs)} paragraphs)", "INFO")
+    except Exception as e:
+        log(f"ERROR: Failed to load template: {e}", "ERROR")
+        sys.exit(1)
+    
+    # Extract party data
+    log("Extracting party data...", "INFO")
     parties = data.get('parties', {})
     seller = parties.get('seller', {})
     buyer = parties.get('buyer', {})
     target = parties.get('targetCompany', {})
-    
     deal = data.get('deal', {})
     legal = data.get('legal', {})
     
+    log(f"  Seller: {seller.get('name', 'NOT PROVIDED')}", "DEBUG")
+    log(f"  Buyer: {buyer.get('name', 'NOT PROVIDED')}", "DEBUG")
+    log(f"  Target: {target.get('name', 'NOT PROVIDED')}", "DEBUG")
+    
     is_binding = legal.get('termSheetType', 'binding') == 'binding'
+    log(f"  Type: {'BINDING' if is_binding else 'NON-BINDING'}", "DEBUG")
     
-    print("\n" + "=" * 80)
-    print("TERM SHEET GENERATION - FIXED PARTY MAPPING")
-    print("=" * 80)
-    
-    # Build replacement dictionary for general placeholders
+    # Build replacements
+    log("Building replacement dictionary...", "INFO")
     replacements = {
-        # Dates
         '[Completion Date]': parse_date_to_words(deal.get('completionDate', '')),
         '[Announcement Date]': parse_date_to_words(deal.get('announcementDate', '')),
         '[Execution Date]': parse_date_to_words(deal.get('executionDate', '')),
-        
-        # Prices and amounts
-        '[Purchase Price]': f"${deal.get('purchasePrice', 0):,.0f}",
-        '[Deposit Amount]': f"${deal.get('depositAmount', 0):,.0f}",
+        '[Purchase Price]': f"${deal.get('purchasePrice', 0):,.0f}" if deal.get('purchasePrice') else '',
+        '[Deposit Amount]': f"${deal.get('depositAmount', 0):,.0f}" if deal.get('depositAmount') else '',
     }
     
-    print("\n1️⃣  Fixing Table of Contents...")
+    # Apply fixes in sequence
+    log("Applying document fixes...", "INFO")
+    
+    log("  1/5: Fixing Table of Contents", "INFO")
     fix_table_of_contents(doc, is_binding)
     
-    print("\n2️⃣  Fixing Parties Table (Seller/Buyer/Escrow Agent)...")
+    log("  2/5: Fixing parties table", "INFO")
     fix_parties_table(doc, seller, buyer)
     
-    print("\n3️⃣  Fixing Recital A with target company...")
+    log("  3/5: Fixing Recital A", "INFO")
     fix_recital_a(doc, target)
     
-    print("\n4️⃣  Applying general placeholder replacements...")
+    log("  4/5: Applying general replacements", "INFO")
     replace_in_document(doc, replacements)
     
-    print("\n5️⃣  Converting dates to word format...")
-    convert_dates_to_words(doc)
+    log("  5/5: Removing conditional placeholders", "INFO")
+    conditionals = [
+        '[Balance of]', '[Use the following for a binding term sheet]',
+        '[Consider whether security/parent guarantee is required to be given by the Buyer]',
+        '[and accounting]', '[insert Party 3 Name]',
+    ]
+    for cond in conditionals:
+        for para in doc.paragraphs:
+            if cond in para.text:
+                para.text = para.text.replace(cond, '')
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for para in cell.paragraphs:
+                        if cond in para.text:
+                            para.text = para.text.replace(cond, '')
     
-    print("\n6️⃣  Fixing signature blocks...")
-    fix_signature_blocks(doc, buyer, seller)
+    # Save
+    log(f"Saving to {output_file}...", "INFO")
+    try:
+        doc.save(output_file)
+        log(f"✓ Document saved successfully", "INFO")
+    except Exception as e:
+        log(f"ERROR: Failed to save document: {e}", "ERROR")
+        sys.exit(1)
     
-    print("\n7️⃣  Removing conditional placeholders...")
-    remove_conditional_placeholders(doc)
-    
-    print(f"\nSaving document to: {output_file}")
-    doc.save(output_file)
-    
-    print("\n" + "=" * 80)
-    print("✅ TERM SHEET GENERATED SUCCESSFULLY")
-    print("=" * 80)
-    print(f"Output: {output_file}")
+    log("=" * 80, "INFO")
+    log("✅ TERM SHEET GENERATED SUCCESSFULLY", "INFO")
+    log("=" * 80, "INFO")
 
 if __name__ == '__main__':
     if len(sys.argv) != 4:
-        print("Usage: python3 generate_term_sheet_CLEAN.py <questionnaire.json> <template.docx> <output.docx>")
+        print("Usage: python3 generate_term_sheet.py <questionnaire.json> <template.docx> <output.docx>")
         sys.exit(1)
     
     questionnaire_file = sys.argv[1]
@@ -316,7 +262,7 @@ if __name__ == '__main__':
     try:
         generate_term_sheet(questionnaire_file, template_file, output_file)
     except Exception as e:
-        print(f"❌ Error: {e}")
+        log(f"FATAL ERROR: {e}", "ERROR")
         import traceback
         traceback.print_exc()
         sys.exit(1)

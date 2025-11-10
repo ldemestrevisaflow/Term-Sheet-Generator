@@ -1,0 +1,60 @@
+{
+  "seller": {
+    "name": "ALDI PTY LTD",
+    "abn": "68 086 493 950"
+  },
+  "buyer": {
+    "name": "WESTFARMERS",
+    "abn": "37 924 047 057"
+  },
+  "targetCompany": {
+    "name": "NVIDIA PTY LIMITED",
+    "abn": "24 125 029 469",
+    "acn": "125 029 469"
+  },
+  "transaction": {
+    "purchasePrice": 100,
+    "depositAmount": 0,
+    "baseNetAssets": 100
+  },
+  "dates": {
+    "termSheetDate": "2025-11-17",
+    "dueDiligenceDate": "2025-11-17",
+    "longFormDate": "2025-11-24",
+    "conditionSatisfactionDate": "2025-12-01",
+    "completionDate": "2025-12-15"
+  },
+  "conditions": {
+    "dueDiligenceType": "unstructured",
+    "infoRequestDays": 10,
+    "accessPeriodDays": 30,
+    "additionalConditions": ""
+  },
+  "warranties": {
+    "structure": "joint",
+    "taxIndemnity": false,
+    "limitations": ""
+  },
+  "commercial": {
+    "nonCompetePeriod": 3,
+    "nonSolicitationPeriod": 12,
+    "exclusivityRequired": "no",
+    "exclusivityEndDate": "",
+    "liquidatedDamages": null
+  },
+  "management": {
+    "directorsResign": "Aidan Douglas",
+    "directorsNewAgreements": "Lauren de Mestre",
+    "retentionPersonnel": ""
+  },
+  "legal": {
+    "termSheetType": "binding",
+    "jurisdiction": "New South Wales",
+    "jurisdictionType": "exclusive",
+    "governingLaw": "New South Wales",
+    "buyerSignatories": "",
+    "sellerSignatories": "",
+    "suppliersSchedule": "",
+    "customersSchedule": ""
+  }
+}

@@ -3,8 +3,7 @@ name: Generate Term Sheet
 on:
   push:
     paths:
-      - 'term_sheet_data/ts_*.json'
-  workflow_dispatch:
+      - 'term_sheet_data/*.json'
 
 permissions:
   contents: write
@@ -26,89 +25,123 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install python-docx
 
-      - name: Find latest Term Sheet data file
-        id: find-file
+      - name: Find latest JSON file
+        id: find_json
         run: |
           # Find the most recent JSON file by sorting filenames (which contain ISO timestamps)
-          LATEST_FILE=$(ls term_sheet_data/ts_*.json 2>/dev/null | sort -r | head -n 1)
-          
-          if [ -z "$LATEST_FILE" ]; then
-            echo "No Term Sheet data files found!"
+          LATEST_JSON=$(ls -t term_sheet_data/ts_*.json 2>/dev/null | head -1)
+          if [ -z "$LATEST_JSON" ]; then
+            echo "No JSON files found!"
             exit 1
           fi
-          
-          echo "Latest file: $LATEST_FILE"
-          echo "TS_FILE=$LATEST_FILE" >> $GITHUB_OUTPUT
+          echo "json_file=$LATEST_JSON" >> $GITHUB_OUTPUT
+          echo "Found questionnaire: $LATEST_JSON"
 
-      - name: Generate Term Sheet document
+      - name: Find template file
+        id: find_template
         run: |
-          echo "Loading Term Sheet data..."
-          python generate_term_sheet.py ${{ steps.find-file.outputs.TS_FILE }}
-          
-          # Verify the file was created
-          if [ ! -f "output/generated_TermSheet.docx" ]; then
-            echo "ERROR: generated_TermSheet.docx was not created!"
-            exit 1
-          fi
-          
-          echo "File created successfully!"
-          ls -lh output/generated_TermSheet.docx
-
-      - name: Get timestamp
-        id: timestamp
-        run: echo "TIMESTAMP=$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
-
-      - name: Prepare generated document
-        run: |
-          # Create generated_documents directory if it doesn't exist
-          mkdir -p generated_documents
-          
-          # Copy the generated document with timestamp
-          cp output/generated_TermSheet.docx generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx
-          
-          # Verify the copy
-          if [ ! -f "generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx" ]; then
-            echo "ERROR: Failed to copy file to generated_documents!"
-            exit 1
-          fi
-          
-          echo "File copied successfully to: generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx"
-          ls -lh generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx
-
-      - name: Commit generated Term Sheet to repository
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          
-          # Add the file
-          git add generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx
-          
-          # Check if there are changes to commit
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
+          # Find the template - try multiple possible names
+          if [ -f "term_sheet_data/Term_Sheet_Template.docx" ]; then
+            echo "template_file=term_sheet_data/Term_Sheet_Template.docx" >> $GITHUB_OUTPUT
+          elif [ -f "templates/term_sheet_template.docx" ]; then
+            echo "template_file=templates/term_sheet_template.docx" >> $GITHUB_OUTPUT
+          elif [ -f "Term_Sheet_Template.docx" ]; then
+            echo "template_file=Term_Sheet_Template.docx" >> $GITHUB_OUTPUT
           else
-            # Get the company name from the JSON file for the commit message
-            SELLER_NAME=$(python -c "import json; data=json.load(open('${{ steps.find-file.outputs.TS_FILE }}')); print(data['seller']['name'])")
-            
-            git commit -m "Generated Term Sheet at ${{ steps.timestamp.outputs.TIMESTAMP }} for ${SELLER_NAME}"
-            git push
-            
-            echo "Successfully committed and pushed!"
+            echo "ERROR: Template file not found!"
+            ls -la term_sheet_data/
+            exit 1
           fi
 
-      - name: Upload Term Sheet as artifact
+      - name: Extract company name and generate filename
+        id: extract_data
+        run: |
+          python3 << 'EXTRACT_SCRIPT'
+          import json
+          import os
+          
+          json_file = "${{ steps.find_json.outputs.json_file }}"
+          
+          try:
+              with open(json_file, 'r') as f:
+                  data = json.load(f)
+              
+              # Extract company name for output filename
+              target_company = data.get('parties', {}).get('targetCompany', {}).get('name', 'TermSheet')
+              buyer_name = data.get('parties', {}).get('buyer', {}).get('name', 'Buyer')
+              
+              # Sanitize for filename
+              company_name = target_company.replace(' ', '_').replace('/', '_').replace('\\', '_')
+              company_name = ''.join(c for c in company_name if c.isalnum() or c == '_')
+              
+              print(f"Extracted company name: {target_company}")
+              print(f"Sanitized for filename: {company_name}")
+              
+              # Write to GitHub output
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f"company_name={company_name}\n")
+                  f.write(f"buyer_name={buyer_name}\n")
+          
+          except Exception as e:
+              print(f"Error extracting data: {e}")
+              exit(1)
+          EXTRACT_SCRIPT
+
+      - name: Generate Term Sheet
+        id: generate
+        run: |
+          python3 generate_term_sheet_CLEAN.py \
+            "${{ steps.find_json.outputs.json_file }}" \
+            "${{ steps.find_template.outputs.template_file }}" \
+            "generated_documents/TermSheet_${{ steps.extract_data.outputs.company_name }}.docx"
+
+      - name: Check if output file exists
+        run: |
+          if [ ! -f "generated_documents/TermSheet_${{ steps.extract_data.outputs.company_name }}.docx" ]; then
+            echo "ERROR: Output file was not created!"
+            ls -la generated_documents/
+            exit 1
+          fi
+          echo "✓ Output file created successfully"
+          ls -lh generated_documents/TermSheet_${{ steps.extract_data.outputs.company_name }}.docx
+
+      - name: Commit and push generated document
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add the generated document
+          git add generated_documents/TermSheet_${{ steps.extract_data.outputs.company_name }}.docx
+          
+          # Commit with company name
+          git commit -m "Generated: Term Sheet for ${{ steps.extract_data.outputs.company_name }}" || echo "No changes to commit"
+          
+          # Push with retry
+          git push || git push --force
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: generated-term-sheet
-          path: generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx
+          name: term-sheet-${{ steps.extract_data.outputs.company_name }}
+          path: generated_documents/TermSheet_${{ steps.extract_data.outputs.company_name }}.docx
+          retention-days: 30
 
-      - name: Create download info
+      - name: Create GitHub Release
+        if: success()
         run: |
-          echo "================================"
-          echo "TERM SHEET GENERATED SUCCESSFULLY!"
-          echo "================================"
-          echo "File: generated_documents/TermSheet_${{ steps.timestamp.outputs.TIMESTAMP }}.docx"
-          echo "Timestamp: ${{ steps.timestamp.outputs.TIMESTAMP }}"
-          echo "================================"
+          TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+          OUTPUT_FILE="generated_documents/TermSheet_${{ steps.extract_data.outputs.company_name }}.docx"
+          
+          # Create or update release notes
+          cat > /tmp/release_notes.md << 'NOTES'
+          # Term Sheet Generated
+          
+          **Company:** ${{ steps.extract_data.outputs.company_name }}
+          **Generated:** $TIMESTAMP
+          **Template:** ${{ steps.find_template.outputs.template_file }}
+          NOTES
+          
+          echo "✓ Document ready for download from generated_documents/ folder"

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Generate Term Sheet DOCX by filling in the master template with JSON questionnaire data
+Generate Term Sheet DOCX by filling in the master PwC template with JSON questionnaire data.
+Uses the actual placeholder names from the template.
+
 Usage: python generate_term_sheet.py <path_to_json_file>
 """
 
@@ -10,14 +12,9 @@ import os
 import glob
 from datetime import datetime
 from docx import Document
-from docx.shared import Pt, Inches, RGBColor
-from docx.oxml import OxmlElement
 
 def find_template():
     """Find the master Term Sheet template file"""
-    import glob
-    
-    # Search for any DOCX file with "Term Sheet" in the name
     print("Searching for Term Sheet template...")
     
     # Try exact names first
@@ -53,23 +50,6 @@ def find_template():
         "Expected to find a file with 'Term Sheet' in the name ending in .docx"
     )
 
-def replace_text_in_paragraph(paragraph, key, value):
-    """Replace placeholder text in a paragraph"""
-    if key in paragraph.text:
-        # Clear the paragraph
-        for run in paragraph.runs:
-            run.text = run.text.replace(key, str(value))
-        return True
-    return False
-
-def replace_text_in_table(table, replacements):
-    """Replace placeholder text in table cells"""
-    for row in table.rows:
-        for cell in row.cells:
-            for paragraph in cell.paragraphs:
-                for key, value in replacements.items():
-                    replace_text_in_paragraph(paragraph, key, str(value))
-
 def replace_text_in_document(doc, replacements):
     """Replace all placeholder text in document with values from replacements dict"""
     
@@ -84,7 +64,14 @@ def replace_text_in_document(doc, replacements):
     
     # Replace in tables
     for table in doc.tables:
-        replace_text_in_table(table, replacements)
+        for row in table.rows:
+            for cell in row.cells:
+                for paragraph in cell.paragraphs:
+                    for key, value in replacements.items():
+                        if key in paragraph.text:
+                            for run in paragraph.runs:
+                                if key in run.text:
+                                    run.text = run.text.replace(key, str(value))
     
     # Replace in headers/footers
     for section in doc.sections:
@@ -112,13 +99,13 @@ def format_currency(value):
             return f"A${num:,.2f}"
     except (ValueError, TypeError):
         pass
-    return "—"
+    return ""
 
 def format_date(value):
     """Format date value"""
     if value:
         return str(value)
-    return "—"
+    return ""
 
 def generate_term_sheet(json_file):
     """Generate a Term Sheet DOCX by filling the master template with JSON data"""
@@ -135,61 +122,70 @@ def generate_term_sheet(json_file):
     doc = Document(template_file)
     
     # Prepare replacements dictionary
-    # These are placeholder tags that should exist in the template
+    # Using the ACTUAL placeholders from the PwC template
+    seller = data.get('seller', {})
+    buyer = data.get('buyer', {})
+    target = data.get('targetCompany', {})
+    transaction = data.get('transaction', {})
+    dates = data.get('dates', {})
+    conditions = data.get('conditions', {})
+    warranties = data.get('warranties', {})
+    commercial = data.get('commercial', {})
+    management = data.get('management', {})
+    legal = data.get('legal', {})
+    
     replacements = {
-        # Parties
-        '[SELLER_NAME]': data.get('seller', {}).get('name', ''),
-        '[SELLER_ABN]': data.get('seller', {}).get('abn', ''),
-        '[BUYER_NAME]': data.get('buyer', {}).get('name', ''),
-        '[BUYER_ABN]': data.get('buyer', {}).get('abn', ''),
-        '[TARGET_COMPANY]': data.get('targetCompany', {}).get('name', ''),
-        '[TARGET_ABN]': data.get('targetCompany', {}).get('abn', ''),
-        '[TARGET_ACN]': data.get('targetCompany', {}).get('acn', ''),
+        # Party Details (Signature Pages)
+        '[Insert Party 1 Name]': seller.get('name', ''),
+        '[Insert ABN of Party 1]': seller.get('abn', ''),
+        '[Insert Party 2 Name]': buyer.get('name', ''),
+        '[Insert ABN of Party 2]': buyer.get('abn', ''),
+        '[Insert Party 3 Name]': target.get('name', ''),
+        '[Insert ABN of Party 3]': target.get('abn', ''),
         
-        # Transaction Details
-        '[PURCHASE_PRICE]': format_currency(data.get('transaction', {}).get('purchasePrice')),
-        '[DEPOSIT_AMOUNT]': format_currency(data.get('transaction', {}).get('depositAmount')),
-        '[BASE_NET_ASSETS]': format_currency(data.get('transaction', {}).get('baseNetAssets')),
+        # Case-sensitive versions
+        '[insert Party 1 Address]': seller.get('name', ''),
+        '[insert Party 2 Address]': buyer.get('name', ''),
+        '[insert Party 3 Address]': target.get('name', ''),
+        '[insert Party  Name]': target.get('name', ''),
+        '[insert ABN]': target.get('abn', ''),
+        '[INSERT PARTY NAME]': buyer.get('name', ''),
         
-        # Key Dates
-        '[TERM_SHEET_DATE]': format_date(data.get('dates', {}).get('termSheetDate')),
-        '[DUE_DILIGENCE_DATE]': format_date(data.get('dates', {}).get('dueDiligenceDate')),
-        '[LONG_FORM_DATE]': format_date(data.get('dates', {}).get('longFormDate')),
-        '[CONDITION_SATISFACTION_DATE]': format_date(data.get('dates', {}).get('conditionSatisfactionDate')),
-        '[COMPLETION_DATE]': format_date(data.get('dates', {}).get('completionDate')),
+        # Key Information - Company Details
+        '[insert name and ABN of company]': f"{target.get('name', '')} (ABN {target.get('abn', '')})",
+        
+        # Dates
+        '[Insert Date]': format_date(dates.get('termSheetDate', '')),
+        '[insert date]': format_date(dates.get('completionDate', '')),
+        
+        # Transaction Amounts
+        '[Insert Amount]': format_currency(transaction.get('purchasePrice')),
+        '[insert amount]': format_currency(transaction.get('depositAmount')),
         
         # Conditions Precedent
-        '[DUE_DILIGENCE_TYPE]': data.get('conditions', {}).get('dueDiligenceType', 'Unstructured'),
-        '[INFO_REQUEST_DAYS]': str(data.get('conditions', {}).get('infoRequestDays', 10)),
-        '[ACCESS_PERIOD_DAYS]': str(data.get('conditions', {}).get('accessPeriodDays', 30)),
-        '[ADDITIONAL_CONDITIONS]': data.get('conditions', {}).get('additionalConditions', ''),
+        '[insert number]': str(conditions.get('infoRequestDays', '10')),
+        '[30]': str(conditions.get('accessPeriodDays', '30')),
+        '[insert address]': target.get('name', ''),
         
-        # Warranties
-        '[WARRANTY_STRUCTURE]': data.get('warranties', {}).get('structure', 'Joint & Several'),
-        '[TAX_INDEMNITY]': 'Included' if data.get('warranties', {}).get('taxIndemnity') else 'Not Included',
-        '[WARRANTY_LIMITATIONS]': data.get('warranties', {}).get('limitations', ''),
+        # Commercial Terms - Non-Compete
+        '[three]': str(commercial.get('nonCompetePeriod', '3')),
+        '[12]': str(commercial.get('nonSolicitationPeriod', '12')),
+        '[six months]': '6 months',
+        '[five]': '5',
         
-        # Commercial Terms
-        '[NON_COMPETE_PERIOD]': str(data.get('commercial', {}).get('nonCompetePeriod', 3)),
-        '[NON_SOLICITATION_PERIOD]': str(data.get('commercial', {}).get('nonSolicitationPeriod', 12)),
-        '[EXCLUSIVITY_REQUIRED]': 'Yes' if data.get('commercial', {}).get('exclusivityRequired') == 'yes' else 'No',
-        '[EXCLUSIVITY_END_DATE]': format_date(data.get('commercial', {}).get('exclusivityEndDate')),
-        '[LIQUIDATED_DAMAGES]': format_currency(data.get('commercial', {}).get('liquidatedDamages')),
+        # Management/Directors
+        '[insert relevant name]': management.get('directorsResign', ''),
         
-        # Management
-        '[DIRECTORS_RESIGN]': data.get('management', {}).get('directorsResign', ''),
-        '[DIRECTORS_NEW_AGREEMENTS]': data.get('management', {}).get('directorsNewAgreements', ''),
-        '[RETENTION_PERSONNEL]': data.get('management', {}).get('retentionPersonnel', ''),
+        # Legal/Jurisdiction
+        '[New South Wales]': legal.get('jurisdiction', 'New South Wales'),
         
-        # Legal & Jurisdiction
-        '[JURISDICTION]': data.get('legal', {}).get('jurisdiction', 'New South Wales'),
-        '[JURISDICTION_TYPE]': 'Exclusive' if data.get('legal', {}).get('jurisdictionType') == 'exclusive' else 'Non-Exclusive',
-        '[TERM_SHEET_TYPE]': 'Binding' if data.get('legal', {}).get('termSheetType') == 'binding' else 'Non-Binding',
-        '[GOVERNING_LAW]': data.get('legal', {}).get('governingLaw', 'New South Wales'),
-        '[BUYER_SIGNATORIES]': data.get('legal', {}).get('buyerSignatories', ''),
-        '[SELLER_SIGNATORIES]': data.get('legal', {}).get('sellerSignatories', ''),
-        '[KEY_SUPPLIERS]': data.get('legal', {}).get('suppliersSchedule', ''),
-        '[KEY_CUSTOMERS]': data.get('legal', {}).get('customersSchedule', ''),
+        # Schedules
+        '[Insert list of Suppliers]': legal.get('suppliersSchedule', ''),
+        '[Insert list of Customers]': legal.get('customersSchedule', ''),
+        
+        # Contact Details placeholders
+        '[insert details]': '',
+        '[insert details of representations]': '',
     }
     
     print("Replacing placeholders in document...")

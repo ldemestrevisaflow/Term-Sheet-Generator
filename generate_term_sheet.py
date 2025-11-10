@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Term Sheet Document Generator
+Term Sheet Document Generator - FIXED PARTY MAPPING
 Converts questionnaire JSON to professional Word document with all placeholders properly replaced
 """
 
@@ -11,24 +11,6 @@ from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 import re
-
-def number_to_words(n):
-    """Convert number to words (e.g., 1 -> one, 20 -> twenty)"""
-    ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
-    teens = ['ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 
-             'sixteen', 'seventeen', 'eighteen', 'nineteen']
-    tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety']
-    
-    if n < 10:
-        return ones[n]
-    elif n < 20:
-        return teens[n - 10]
-    elif n < 100:
-        return tens[n // 10] + (' ' + ones[n % 10] if n % 10 else '')
-    elif n < 1000:
-        return ones[n // 100] + ' hundred' + (' ' + number_to_words(n % 100) if n % 100 else '')
-    else:
-        return str(n)
 
 def parse_date_to_words(date_str):
     """Convert date string (2025-12-20) to words (20 December 2025)"""
@@ -46,42 +28,18 @@ def parse_date_to_words(date_str):
         return date_str
 
 def set_cell_text(cell, text):
-    """Set text in a table cell, replacing all paragraphs"""
+    """Set text in a table cell"""
     cell.text = text
 
-def get_all_text(doc):
-    """Get all text from document including tables"""
-    all_text = []
-    for para in doc.paragraphs:
-        all_text.append(para.text)
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    all_text.append(para.text)
-    return '\n'.join(all_text)
-
 def replace_in_paragraph(para, old, new):
-    """Replace text in a paragraph, handling text split across runs"""
+    """Replace text in a paragraph"""
     if old not in para.text:
         return False
     
-    full_text = para.text
-    if old in full_text:
-        # Rebuild with replacement
-        new_text = full_text.replace(old, new)
-        # Clear runs
-        for run in para.runs:
-            run.text = ""
-        # Add new text
-        para.text = new_text
+    if old in para.text:
+        para.text = para.text.replace(old, new)
         return True
     return False
-
-def replace_in_cell(cell, old, new):
-    """Replace text in a table cell"""
-    for para in cell.paragraphs:
-        replace_in_paragraph(para, old, new)
 
 def replace_in_document(doc, replacements):
     """Replace placeholders throughout entire document"""
@@ -106,156 +64,146 @@ def replace_in_document(doc, replacements):
             for old, new in replacements.items():
                 replace_in_paragraph(para, old, new)
 
-def fix_first_page_parties(doc, seller, buyer, target):
-    """Fix first page party placeholders - handles both names and numbers"""
-    print("Fixing first page parties and removing numbers...")
+def replace_in_cell(cell, old, new):
+    """Replace text in a table cell"""
+    for para in cell.paragraphs:
+        replace_in_paragraph(para, old, new)
+
+def fix_table_of_contents(doc, is_binding):
+    """Fix [non-] in table of contents to Binding or Non-Binding"""
+    print("Fixing Table of Contents binding/non-binding text...")
     
-    # Define all variations we might encounter
-    replacements = {
-        # Party 1 (Seller)
-        '[Insert Party 1 Name]': seller.get('name', ''),
-        '[Insert Party 1 Address]': seller.get('address', ''),
-        'Party 1': f"Party {buyer.get('name', '')}",  # If labeled as Party 1
-        '1.': '',  # Remove trailing numbers
-        
-        # Party 2 (Buyer)
-        '[Insert Party 2 Name]': buyer.get('name', ''),
-        '[Insert Party 2 Address]': buyer.get('address', ''),
-        'Party 2': f"Party {seller.get('name', '')}",  # If labeled as Party 2
-        '2.': '',  # Remove trailing numbers
-        
-        # Party 3 (Target)
-        '[Insert Party 3 Name]': target.get('name', ''),
-        '[Insert Party 3 Address]': target.get('address', ''),
-        'Party 3': f"Party {target.get('name', '')}",
-        '3.': '',  # Remove trailing numbers
-    }
-    
-    # Apply to all paragraphs and table cells
-    for para in doc.paragraphs:
+    for para_idx, para in enumerate(doc.paragraphs[:50]):  # Check first 50 paras for TOC
         text = para.text
         
-        # Remove trailing "1" or "2" after party names in contents/heading
-        # e.g., "Seller 1" -> "Seller", "Buyer 2" -> "Buyer"
-        if seller.get('name', '') in text and ' 1' in text:
-            para.text = text.replace(f"{seller.get('name', '')} 1", seller.get('name', ''))
-        if buyer.get('name', '') in text and ' 2' in text:
-            para.text = text.replace(f"{buyer.get('name', '')} 2", buyer.get('name', ''))
-        if target.get('name', '') in text and ' 3' in text:
-            para.text = text.replace(f"{target.get('name', '')} 3", target.get('name', ''))
+        # Fix [non-]Binding variations
+        if '[non-]' in text:
+            if is_binding:
+                para.text = text.replace('[non-]Binding', 'Binding')
+                para.text = para.text.replace('[non-]', '')
+            else:
+                para.text = text.replace('[non-]Binding', 'Non-Binding')
+                para.text = para.text.replace('[non-]', 'non-')
         
-        # Do regular replacements
-        for old, new in replacements.items():
-            if old in para.text:
-                para.text = para.text.replace(old, new)
-    
-    # Apply to table cells
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    text = para.text
-                    
-                    # Remove trailing numbers
-                    if seller.get('name', '') in text and ' 1' in text:
-                        para.text = text.replace(f"{seller.get('name', '')} 1", seller.get('name', ''))
-                    if buyer.get('name', '') in text and ' 2' in text:
-                        para.text = text.replace(f"{buyer.get('name', '')} 2", buyer.get('name', ''))
-                    
-                    # Do replacements
-                    for old, new in replacements.items():
-                        if old in para.text:
-                            para.text = para.text.replace(old, new)
+        if 'Non-]' in text:
+            if is_binding:
+                para.text = text.replace('Non-]Binding', 'Binding')
+            else:
+                para.text = text.replace('Non-]Binding', 'Non-Binding')
+        
+        if para.text != text:
+            print(f"  ✓ Fixed: {para.text[:80]}")
 
-def fix_binding_text(doc, is_binding):
-    """Fix the [non-]Binding text in table of contents and headers"""
-    print(f"Fixing binding/non-binding text (is_binding={is_binding})...")
+def fix_parties_table(doc, seller, buyer):
+    """Fix the parties table (Table 1) with correct Seller/Buyer mapping"""
+    print("Fixing parties table with correct Seller/Buyer data...")
     
-    # Replacement text
-    binding_text = "Binding" if is_binding else "Non-Binding"
+    if len(doc.tables) < 2:
+        print("  ⚠️  Document doesn't have a parties table")
+        return
     
-    for para in doc.paragraphs:
-        # Handle various formats
-        if '[non-]' in para.text:
-            para.text = para.text.replace('[non-]', '' if is_binding else 'non-')
-        if 'Non-]' in para.text:
-            para.text = para.text.replace('Non-]', '' if is_binding else 'Non-')
-        if '[non-]Binding' in para.text:
-            para.text = para.text.replace('[non-]Binding', binding_text)
+    table = doc.tables[1]
     
-    # Handle in tables
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    if '[non-]' in para.text:
-                        para.text = para.text.replace('[non-]', '' if is_binding else 'non-')
-                    if 'Non-]' in para.text:
-                        para.text = para.text.replace('Non-]', '' if is_binding else 'Non-')
-                    if '[non-]Binding' in para.text:
-                        para.text = para.text.replace('[non-]Binding', binding_text)
+    # Party 1: Seller (rows 3-8)
+    print(f"\n  Party 1 - SELLER:")
+    set_cell_text(table.rows[3].cells[1], seller.get('name', ''))
+    print(f"    Name: {seller.get('name', '')}")
+    
+    set_cell_text(table.rows[4].cells[1], seller.get('abn', ''))
+    print(f"    ABN: {seller.get('abn', '')}")
+    
+    set_cell_text(table.rows[5].cells[1], 'Seller')
+    
+    # Notice details for Seller
+    seller_notice = seller.get('address', '')
+    if seller.get('attention'):
+        seller_notice += f"\nAttention: {seller.get('attention')}"
+    set_cell_text(table.rows[6].cells[1], seller_notice)
+    
+    if seller.get('facsimile'):
+        set_cell_text(table.rows[7].cells[1], f"Facsimile: {seller.get('facsimile')}")
+    if seller.get('email'):
+        set_cell_text(table.rows[8].cells[1], f"Email: {seller.get('email')}")
+    
+    # Party 2: Buyer (rows 10-15)
+    print(f"\n  Party 2 - BUYER:")
+    set_cell_text(table.rows[10].cells[1], buyer.get('name', ''))
+    print(f"    Name: {buyer.get('name', '')}")
+    
+    set_cell_text(table.rows[11].cells[1], buyer.get('abn', ''))
+    print(f"    ABN: {buyer.get('abn', '')}")
+    
+    set_cell_text(table.rows[12].cells[1], 'Buyer')
+    
+    # Notice details for Buyer
+    buyer_notice = buyer.get('address', '')
+    if buyer.get('attention'):
+        buyer_notice += f"\nAttention: {buyer.get('attention')}"
+    set_cell_text(table.rows[13].cells[1], buyer_notice)
+    
+    if buyer.get('facsimile'):
+        set_cell_text(table.rows[14].cells[1], f"Facsimile: {buyer.get('facsimile')}")
+    if buyer.get('email'):
+        set_cell_text(table.rows[15].cells[1], f"Email: {buyer.get('email')}")
+    
+    # Party 3: Escrow Agent (rows 17-22) - LEAVE FOR NOW
+    print(f"\n  Party 3 - ESCROW AGENT (left as is for now)")
 
 def fix_recital_a(doc, target):
     """Fix Recital A with target company name and ABN"""
-    print("Fixing Recital A with target company name...")
+    print("\nFixing Recital A with target company name...")
     
-    replacement = f"{target.get('name', '')} (ABN {target.get('abn', '')})"
+    target_text = f"{target.get('name', '')} (ABN {target.get('abn', '')})"
     
-    for para in doc.paragraphs:
-        if '[insert name and ABN of company]' in para.text:
-            para.text = para.text.replace('[insert name and ABN of company]', replacement)
-        if 'insert name and ABN' in para.text:
-            para.text = para.text.replace('insert name and ABN of company', replacement)
-    
-    # Handle in tables
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    if '[insert name and ABN of company]' in para.text:
-                        para.text = para.text.replace('[insert name and ABN of company]', replacement)
-                    if 'insert name and ABN' in para.text:
-                        para.text = para.text.replace('insert name and ABN of company', replacement)
+    # Find Recital A in paragraphs
+    for para_idx, para in enumerate(doc.paragraphs):
+        if 'Recital A' in para.text or 'RECITAL A' in para.text:
+            # Next few paragraphs should contain the company reference
+            for offset in range(1, 5):
+                if para_idx + offset < len(doc.paragraphs):
+                    next_para = doc.paragraphs[para_idx + offset]
+                    
+                    # Replace placeholder variations
+                    if '[insert name and ABN of company]' in next_para.text:
+                        next_para.text = next_para.text.replace('[insert name and ABN of company]', target_text)
+                        print(f"  ✓ Updated Recital A: {target_text}")
+                        return
+                    elif 'insert name and ABN' in next_para.text:
+                        next_para.text = next_para.text.replace('insert name and ABN of company', target_text)
+                        print(f"  ✓ Updated Recital A: {target_text}")
+                        return
 
 def fix_signature_blocks(doc, buyer, seller):
     """Fix signature blocks with buyer and seller names"""
-    print("Fixing signature blocks...")
+    print("\nFixing signature blocks...")
     
     buyer_name = buyer.get('name', '')
     seller_name = seller.get('name', '')
     
-    for para in doc.paragraphs:
-        if '[INSERT PARTY NAME]' in para.text:
-            # Determine which one based on context
-            if 'Buyer' in para.text or 'BUYER' in para.text:
-                para.text = para.text.replace('[INSERT PARTY NAME]', buyer_name)
-            elif 'Seller' in para.text or 'SELLER' in para.text:
-                para.text = para.text.replace('[INSERT PARTY NAME]', seller_name)
-    
-    # Handle in tables
-    for table in doc.tables:
+    for table_idx, table in enumerate(doc.tables):
         for row in table.rows:
             for cell in row.cells:
                 for para in cell.paragraphs:
                     if '[INSERT PARTY NAME]' in para.text:
+                        # Context-based replacement
                         if 'Buyer' in para.text or 'BUYER' in para.text:
                             para.text = para.text.replace('[INSERT PARTY NAME]', buyer_name)
+                            print(f"  ✓ Buyer signature block: {buyer_name}")
                         elif 'Seller' in para.text or 'SELLER' in para.text:
                             para.text = para.text.replace('[INSERT PARTY NAME]', seller_name)
+                            print(f"  ✓ Seller signature block: {seller_name}")
 
 def convert_dates_to_words(doc):
     """Convert all ISO dates to word format"""
-    print("Converting dates to word format...")
+    print("\nConverting dates to word format...")
     
-    # Pattern to find dates like 2025-12-20
     date_pattern = r'\b(\d{4})-(\d{2})-(\d{2})\b'
     
     for para in doc.paragraphs:
-        def replace_date(match):
-            date_str = match.group(0)
-            return parse_date_to_words(date_str)
-        
-        para.text = re.sub(date_pattern, replace_date, para.text)
+        if date_pattern in para.text or any(c in para.text for c in ['2024', '2025', '2026']):
+            def replace_date(match):
+                return parse_date_to_words(match.group(0))
+            para.text = re.sub(date_pattern, replace_date, para.text)
     
     # Handle in tables
     for table in doc.tables:
@@ -263,6 +211,32 @@ def convert_dates_to_words(doc):
             for cell in row.cells:
                 for para in cell.paragraphs:
                     para.text = re.sub(date_pattern, lambda m: parse_date_to_words(m.group(0)), para.text)
+
+def remove_conditional_placeholders(doc):
+    """Remove remaining conditional placeholders like [Balance of], [Consider...], etc."""
+    print("\nRemoving conditional placeholders...")
+    
+    conditional_placeholders = [
+        '[Balance of]',
+        '[Use the following for a binding term sheet]',
+        '[Consider whether security/parent guarantee is required to be given by the Buyer]',
+        '[and accounting]',
+        '[insert Party 3 Name]',
+    ]
+    
+    for para in doc.paragraphs:
+        for placeholder in conditional_placeholders:
+            if placeholder in para.text:
+                para.text = para.text.replace(placeholder, '')
+    
+    # Handle in tables
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for para in cell.paragraphs:
+                    for placeholder in conditional_placeholders:
+                        if placeholder in para.text:
+                            para.text = para.text.replace(placeholder, '')
 
 def generate_term_sheet(questionnaire_file, template_file, output_file):
     """Main function to generate term sheet"""
@@ -286,20 +260,12 @@ def generate_term_sheet(questionnaire_file, template_file, output_file):
     is_binding = legal.get('termSheetType', 'binding') == 'binding'
     
     print("\n" + "=" * 80)
-    print("TERM SHEET GENERATION PROCESS")
+    print("TERM SHEET GENERATION - FIXED PARTY MAPPING")
     print("=" * 80)
     
-    # Build replacement dictionary
+    # Build replacement dictionary for general placeholders
     replacements = {
-        # Parties
-        '[Seller Name]': seller.get('name', ''),
-        '[Buyer Name]': buyer.get('name', ''),
-        '[Target Company Name]': target.get('name', ''),
-        '[Seller ABN]': seller.get('abn', ''),
-        '[Buyer ABN]': buyer.get('abn', ''),
-        '[Target ABN]': target.get('abn', ''),
-        
-        # Deal dates
+        # Dates
         '[Completion Date]': parse_date_to_words(deal.get('completionDate', '')),
         '[Announcement Date]': parse_date_to_words(deal.get('announcementDate', '')),
         '[Execution Date]': parse_date_to_words(deal.get('executionDate', '')),
@@ -309,23 +275,26 @@ def generate_term_sheet(questionnaire_file, template_file, output_file):
         '[Deposit Amount]': f"${deal.get('depositAmount', 0):,.0f}",
     }
     
-    print("\n1️⃣  Applying general placeholder replacements...")
-    replace_in_document(doc, replacements)
+    print("\n1️⃣  Fixing Table of Contents...")
+    fix_table_of_contents(doc, is_binding)
     
-    print("2️⃣  Fixing first page parties and removing numbers...")
-    fix_first_page_parties(doc, seller, buyer, target)
+    print("\n2️⃣  Fixing Parties Table (Seller/Buyer/Escrow Agent)...")
+    fix_parties_table(doc, seller, buyer)
     
-    print("3️⃣  Fixing binding/non-binding text...")
-    fix_binding_text(doc, is_binding)
-    
-    print("4️⃣  Fixing Recital A...")
+    print("\n3️⃣  Fixing Recital A with target company...")
     fix_recital_a(doc, target)
     
-    print("5️⃣  Converting dates to word format...")
+    print("\n4️⃣  Applying general placeholder replacements...")
+    replace_in_document(doc, replacements)
+    
+    print("\n5️⃣  Converting dates to word format...")
     convert_dates_to_words(doc)
     
-    print("6️⃣  Fixing signature blocks...")
+    print("\n6️⃣  Fixing signature blocks...")
     fix_signature_blocks(doc, buyer, seller)
+    
+    print("\n7️⃣  Removing conditional placeholders...")
+    remove_conditional_placeholders(doc)
     
     print(f"\nSaving document to: {output_file}")
     doc.save(output_file)

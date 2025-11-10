@@ -1357,13 +1357,33 @@
 
                         const filesWithTime = files
                             .filter(f => f.name.startsWith('TermSheet_') && f.name.endsWith('.docx'))
-                            .map(f => ({ ...f, name: f.name }));
+                            .map(f => {
+                                // Extract timestamp from filename: TermSheet_YYYYMMDD_HHMMSS.docx
+                                const match = f.name.match(/TermSheet_(\d{8})_(\d{6})\.docx/);
+                                if (match) {
+                                    const dateStr = match[1]; // YYYYMMDD
+                                    const timeStr = match[2]; // HHMMSS
+                                    const year = dateStr.substring(0, 4);
+                                    const month = dateStr.substring(4, 6);
+                                    const day = dateStr.substring(6, 8);
+                                    const hour = timeStr.substring(0, 2);
+                                    const minute = timeStr.substring(2, 4);
+                                    const second = timeStr.substring(4, 6);
+                                    
+                                    const fileDate = new Date(year, month-1, day, hour, minute, second);
+                                    return { ...f, timestamp: fileDate };
+                                }
+                                return null;
+                            })
+                            .filter(f => f !== null)
+                            .sort((a, b) => b.timestamp - a.timestamp); // Sort newest first
 
                         console.log(`Found ${filesWithTime.length} total Term Sheet files`);
 
                         if (filesWithTime.length > 0) {
                             const newestFile = filesWithTime[0];
                             console.log('SUCCESS: Found document:', newestFile.name);
+                            console.log('Timestamp:', newestFile.timestamp.toISOString());
                             return newestFile.download_url;
                         } else {
                             console.log(`Attempt ${i + 1}/${retries}: No new documents yet, waiting...`);

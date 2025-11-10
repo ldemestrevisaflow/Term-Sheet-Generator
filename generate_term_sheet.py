@@ -7,6 +7,7 @@ Usage: python generate_term_sheet.py <path_to_json_file>
 import json
 import sys
 import os
+import glob
 from datetime import datetime
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
@@ -14,7 +15,12 @@ from docx.oxml import OxmlElement
 
 def find_template():
     """Find the master Term Sheet template file"""
-    # Look for the template in common locations
+    import glob
+    
+    # Search for any DOCX file with "Term Sheet" in the name
+    print("Searching for Term Sheet template...")
+    
+    # Try exact names first
     possible_names = [
         'Term Sheet - Share Sale - Binding_option[ID 2740].docx',
         'Term Sheet - Share Sale - Binding.docx',
@@ -24,13 +30,26 @@ def find_template():
     
     for template_name in possible_names:
         if os.path.exists(template_name):
-            print(f"Found template: {template_name}")
+            print(f"✓ Found template: {template_name}")
             return template_name
     
-    # If not found, raise error
+    # Fallback: search for any docx file with "Term Sheet" in name
+    print("Exact match not found, searching for any 'Term Sheet' docx files...")
+    for pattern in ['*Term Sheet*.docx', 'templates/*Term Sheet*.docx']:
+        matches = glob.glob(pattern)
+        if matches:
+            template_file = matches[0]
+            print(f"✓ Found template via glob: {template_file}")
+            return template_file
+    
+    # List all files for debugging
+    print("\n⚠️  Template not found! Available DOCX files:")
+    for docx_file in glob.glob('**/*.docx', recursive=True):
+        print(f"  - {docx_file}")
+    
     raise FileNotFoundError(
         "Master Term Sheet template not found. "
-        "Looking for: 'Term Sheet - Share Sale - Binding_option[ID 2740].docx'"
+        "Expected to find a file with 'Term Sheet' in the name ending in .docx"
     )
 
 def replace_text_in_paragraph(paragraph, key, value):

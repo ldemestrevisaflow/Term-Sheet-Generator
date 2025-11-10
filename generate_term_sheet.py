@@ -56,13 +56,38 @@ def get_cell_text(cell):
     return ''.join([para.text for para in cell.paragraphs])
 
 def set_cell_text(cell, new_text):
-    """Set text in a cell, handling multiple paragraphs"""
+    """Set text in a cell by modifying the first paragraph's runs"""
     if cell.paragraphs:
-        cell.paragraphs[0].text = new_text
-        # Clear other paragraphs if any
-        for para in cell.paragraphs[1:]:
-            p = para._element
-            p.getparent().remove(p)
+        para = cell.paragraphs[0]
+        # Clear all runs in the paragraph
+        for run in list(para.runs):
+            r = run._element
+            r.getparent().remove(r)
+        # Add new run with the text
+        para.add_run(new_text)
+
+def format_date_word(date_str):
+    """Convert date from YYYY-MM-DD to 'DD Month YYYY' format"""
+    if not date_str or date_str.strip() == '':
+        return ''
+    
+    try:
+        from datetime import datetime
+        # Parse the date - handle ISO format
+        if 'T' in date_str:  # ISO format like 2025-12-15T00:00:00
+            date_obj = datetime.fromisoformat(date_str.split('T')[0])
+        else:  # Simple YYYY-MM-DD format
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+        
+        # Format as "20 December 2025"
+        formatted = date_obj.strftime('%d %B %Y')
+        # Remove leading zero from day (e.g., "03" -> "3")
+        if formatted[0] == '0':
+            formatted = formatted[1:]
+        return formatted
+    except Exception as e:
+        print(f"Warning: Could not format date '{date_str}': {e}")
+        return date_str
 
 def replace_text_in_runs(runs, replacements):
     """Replace text across multiple runs in a paragraph"""
@@ -206,9 +231,9 @@ def format_currency(value):
     return ""
 
 def format_date(value):
-    """Format date value"""
+    """Format date value - convert to word format like '20 December 2025'"""
     if value:
-        return str(value)
+        return format_date_word(value)
     return ""
 
 def generate_term_sheet(json_file):

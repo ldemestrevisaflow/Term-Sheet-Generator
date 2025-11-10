@@ -3,7 +3,6 @@ name: Generate Term Sheet
 on:
   repository_dispatch:
     types: [generate_term_sheet]
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -30,8 +29,7 @@ jobs:
           pip install python-docx
 
       - name: Process term sheet data and generate documents
-        run: |
-          python << 'EOF'
+        run: python << 'PYTHON_SCRIPT'
 import os
 import json
 import glob
@@ -314,7 +312,8 @@ except Exception as e:
     import traceback
     traceback.print_exc()
     exit(1)
-          EOF
+
+PYTHON_SCRIPT
 
       - name: Configure Git
         run: |

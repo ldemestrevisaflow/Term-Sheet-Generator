@@ -1,0 +1,60 @@
+{
+  "seller": {
+    "name": "John De Mestre & Co Pty Ltd",
+    "abn": "83 137 714 777"
+  },
+  "buyer": {
+    "name": "M DE MESTRE LAWYERS PTY LTD",
+    "abn": "87 672 552 957"
+  },
+  "targetCompany": {
+    "name": "Bartier Perry Pty Limited",
+    "abn": "30 124 690 053",
+    "acn": ""
+  },
+  "transaction": {
+    "purchasePrice": 1,
+    "depositAmount": 0,
+    "baseNetAssets": 200
+  },
+  "dates": {
+    "termSheetDate": "2026-02-13",
+    "dueDiligenceDate": "2026-02-19",
+    "longFormDate": "2026-02-23",
+    "conditionSatisfactionDate": "2026-03-07",
+    "completionDate": "2026-03-08"
+  },
+  "conditions": {
+    "dueDiligenceType": "unstructured",
+    "infoRequestDays": 10,
+    "accessPeriodDays": 30,
+    "additionalConditions": ""
+  },
+  "warranties": {
+    "structure": "joint",
+    "taxIndemnity": true,
+    "limitations": ""
+  },
+  "commercial": {
+    "nonCompetePeriod": 3,
+    "nonSolicitationPeriod": 12,
+    "exclusivityRequired": "no",
+    "exclusivityEndDate": "",
+    "liquidatedDamages": null
+  },
+  "management": {
+    "directorsResign": "Lauren de Mestre",
+    "directorsNewAgreements": "David de Mestre",
+    "retentionPersonnel": "CEO to remain for 12 months"
+  },
+  "legal": {
+    "termSheetType": "binding",
+    "jurisdiction": "New South Wales",
+    "jurisdictionType": "exclusive",
+    "governingLaw": "New South Wales",
+    "buyerSignatories": "Lauren de Mestre",
+    "sellerSignatories": "David de Mestre",
+    "suppliersSchedule": "Abbey de Mestre",
+    "customersSchedule": "Michael de Mestre"
+  }
+}

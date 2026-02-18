@@ -1,0 +1,107 @@
+{
+  "seller": {
+    "name": "John De Mestre & Co Pty Ltd",
+    "abn": "83 137 714 777"
+  },
+  "buyer": {
+    "name": "WESTFARMERS",
+    "abn": "37 924 047 057"
+  },
+  "targetCompany": {
+    "name": "NVIDIA PTY LIMITED",
+    "abn": "24 125 029 469",
+    "acn": ""
+  },
+  "transaction": {
+    "purchasePrice": 500,
+    "depositAmount": 0,
+    "baseNetAssets": 600
+  },
+  "dates": {
+    "termSheetDate": "2026-02-18",
+    "dueDiligenceDate": "2026-02-26",
+    "longFormDate": "2026-03-05",
+    "conditionSatisfactionDate": "2026-03-08",
+    "completionDate": "2026-03-25"
+  },
+  "conditions": {
+    "dueDiligenceType": "unstructured",
+    "infoRequestDays": 10,
+    "accessPeriodDays": 30,
+    "additionalConditions": ""
+  },
+  "warranties": {
+    "structure": "joint",
+    "taxIndemnity": false,
+    "limitations": ""
+  },
+  "commercial": {
+    "nonCompetePeriod": 3,
+    "nonSolicitationPeriod": 12,
+    "exclusivityRequired": "no",
+    "exclusivityEndDate": "",
+    "liquidatedDamages": null
+  },
+  "management": {
+    "directorsResign": "Lauren de Mestre",
+    "directorsNewAgreements": "Abbey de Mestre",
+    "retentionPersonnel": ""
+  },
+  "legal": {
+    "termSheetType": "binding",
+    "jurisdiction": "New South Wales",
+    "jurisdictionType": "exclusive",
+    "governingLaw": "New South Wales",
+    "buyerSignatories": "John de Mestre",
+    "sellerSignatories": "David de Mestre",
+    "suppliersSchedule": "",
+    "customersSchedule": ""
+  },
+  "reservedMatters": {
+    "shareholdingRange": "10-30",
+    "approvalThreshold": "75",
+    "selectedMatters": [
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.5",
+      "1.6",
+      "1.9",
+      "1.10",
+      "1.11",
+      "1.12",
+      "1.13",
+      "1.17",
+      "1.23",
+      "1.28",
+      "1.29"
+    ]
+  },
+  "spaTerms": {
+    "representations": {
+      "title": true,
+      "capacity": true,
+      "accounts": true,
+      "tax": true,
+      "materialChange": true,
+      "litigation": true,
+      "employment": true,
+      "property": true,
+      "ip": true,
+      "contracts": true,
+      "insolvency": true,
+      "environment": false,
+      "regulatory": false
+    },
+    "limitations": {
+      "liabilityCap": "100",
+      "customCapAmount": "",
+      "deMinimis": null,
+      "basketThreshold": null,
+      "basketType": "tipping",
+      "warrantyPeriod": 24,
+      "taxWarrantyPeriod": 84,
+      "excludedClaims": ""
+    }
+  }
+}

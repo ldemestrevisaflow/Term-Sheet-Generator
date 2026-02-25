@@ -1,0 +1,98 @@
+{
+  "sellers": [
+    {
+      "name": "WESTFARMERS",
+      "type": "company",
+      "acn": "37 924 047 057",
+      "shareholding": ""
+    }
+  ],
+  "buyer": {
+    "name": "M DE MESTRE LAWYERS PTY LTD",
+    "acn": "87 672 552 957"
+  },
+  "targetCompany": {
+    "name": "Bartier Perry Pty Limited",
+    "abn": "30 124 690 053",
+    "acn": "124 690 053"
+  },
+  "transaction": {
+    "enterpriseValue": 100
+  },
+  "dates": {
+    "dueDiligenceDate": "2026-02-27",
+    "longFormDate": "2026-03-05",
+    "conditionSatisfactionDate": "2026-03-12",
+    "completionDate": "2026-03-12"
+  },
+  "conditions": {
+    "infoRequestDays": 10,
+    "accessPeriodDays": 30,
+    "additionalConditions": ""
+  },
+  "warranties": {
+    "structure": "joint",
+    "liabilityRegime": "seller_liability",
+    "liabilityCapType": "100percent",
+    "liabilityCapCustom": "",
+    "deMinimis": 0.1,
+    "basket": 1,
+    "taxWarrantyPeriod": 5,
+    "generalWarrantyPeriod": 2,
+    "limitations": ""
+  },
+  "commercial": {
+    "nonCompetePeriod": 3,
+    "nonSolicitationPeriod": 12,
+    "exclusivityRequired": "yes",
+    "exclusivityEndDate": "2027-02-26"
+  },
+  "management": {
+    "directorsResign": {
+      "applicable": true,
+      "persons": [
+        {
+          "name": "John de Mestre",
+          "role": "Director"
+        }
+      ]
+    },
+    "directorsNewAgreements": {
+      "applicable": true,
+      "persons": [
+        {
+          "name": "Joao Muniz Campos",
+          "role": "Director"
+        }
+      ]
+    },
+    "retentionPersonnel": {
+      "applicable": true,
+      "persons": [
+        {
+          "name": "Lauren Kate"
+        }
+      ]
+    }
+  },
+  "legal": {
+    "jurisdiction": "New South Wales",
+    "jurisdictionType": "non-exclusive",
+    "buyerSignatories": [
+      {
+        "name": "Aidan Douglas",
+        "title": "Founder"
+      }
+    ],
+    "sellerSignatories": [
+      {
+        "name": "Andrew Wheeler",
+        "title": "Director"
+      }
+    ]
+  },
+  "reservedMatters": {
+    "tier": "10to20",
+    "additional": ""
+  }
+}

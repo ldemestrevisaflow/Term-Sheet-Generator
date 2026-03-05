@@ -1,0 +1,60 @@
+{
+  "seller": {
+    "name": "John De Mestre & Co Pty Ltd",
+    "abn": "83 137 714 777"
+  },
+  "buyer": {
+    "name": "WESTFARMERS",
+    "abn": "37 924 047 057"
+  },
+  "targetCompany": {
+    "name": "Bartier Perry Pty Limited",
+    "abn": "30 124 690 053",
+    "acn": ""
+  },
+  "transaction": {
+    "purchasePrice": 150,
+    "depositAmount": 15498,
+    "baseNetAssets": 47897
+  },
+  "dates": {
+    "termSheetDate": "2026-03-20",
+    "dueDiligenceDate": "2026-03-19",
+    "longFormDate": "2026-03-20",
+    "conditionSatisfactionDate": "2026-03-29",
+    "completionDate": "2026-03-29"
+  },
+  "conditions": {
+    "dueDiligenceType": "unstructured",
+    "infoRequestDays": 10,
+    "accessPeriodDays": 30,
+    "additionalConditions": ""
+  },
+  "warranties": {
+    "structure": "joint",
+    "taxIndemnity": false,
+    "limitations": ""
+  },
+  "commercial": {
+    "nonCompetePeriod": 3,
+    "nonSolicitationPeriod": 12,
+    "exclusivityRequired": "no",
+    "exclusivityEndDate": "",
+    "liquidatedDamages": null
+  },
+  "management": {
+    "directorsResign": "fdslkfjs",
+    "directorsNewAgreements": "sdkjflkdsjf",
+    "retentionPersonnel": "aslkjdlksajd"
+  },
+  "legal": {
+    "termSheetType": "nonbinding",
+    "jurisdiction": "Tasmania",
+    "jurisdictionType": "exclusive",
+    "governingLaw": "Australian Capital Territory",
+    "buyerSignatories": "sdlsakjdlk",
+    "sellerSignatories": "laksjdlksajd",
+    "suppliersSchedule": "alskjdsalkjd",
+    "customersSchedule": "askjdlksajd"
+  }
+}
